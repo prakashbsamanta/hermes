@@ -1,0 +1,6 @@
+polars
+requests
+python-dotenv
+pyarrow
+aiohttp
+numpy
