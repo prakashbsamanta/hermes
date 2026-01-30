@@ -52,8 +52,17 @@ class BacktestEngine:
         
         # Calculate Asset Returns (Close to Close)
         # Note: For minute data, this is minute-to-minute return.
+        # Calculate Asset Returns (Close to Close)
+        # Note: For minute data, this is minute-to-minute return.
+        # SAFETY: Handle Division by Zero or NaN results immediately.
+        # If prev_close is 0 or NaN (should be filtered, but double check), result is Inf/NaN.
+        # We fill invalid returns with 0.0 (Flat).
+        
         df = df.with_columns([
-            (pl.col("close") / pl.col("close").shift(1) - 1).alias("market_return")
+            (pl.col("close") / pl.col("close").shift(1) - 1)
+            .fill_nan(0.0)
+            .fill_null(0.0)
+            .alias("market_return")
         ])
         
         # Position Logic: Signal at T affects Return at T+1
@@ -63,8 +72,14 @@ class BacktestEngine:
         
         # Strategy Returns
         # We handle both Nulls (shift artifact) and NaNs (div by zero potential)
+        # Strategy Returns
+        # We handle both Nulls (shift artifact) and NaNs (div by zero potential)
+        # SAFETY: Ensure strategy return doesn't explode.
         df = df.with_columns([
-            (pl.col("position") * pl.col("market_return")).fill_null(0).fill_nan(0.0).alias("strategy_return")
+            (pl.col("position") * pl.col("market_return"))
+            .fill_null(0.0)
+            .fill_nan(0.0)
+            .alias("strategy_return")
         ])
         
         # Equity Curve

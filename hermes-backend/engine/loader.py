@@ -61,6 +61,19 @@ class DataLoader:
         # Note: Depending on strategy, we might sort by (symbol, timestamp) or (timestamp, symbol)
         # For a centralized event loop, (timestamp, symbol) is better.
         combined_lazy = combined_lazy.sort(["timestamp", "symbol"])
+
+        # --- DATA GUARD (Robustness) ---
+        # 1. Filter out invalid prices (<= 0)
+        # 2. Drop rows with Nulls in critical columns
+        # This ensures AUTHENTICITY: we never backtest on fake/zero data.
+        
+        logging.info("Applying Data Guard: Filtering invalid prices and nulls...")
+        combined_lazy = combined_lazy.filter(
+            (pl.col("close") > 0) & 
+            (pl.col("open") > 0) & 
+            (pl.col("high") > 0) & 
+            (pl.col("low") > 0)
+        ).drop_nulls(subset=["close", "open", "high", "low"])
         
         logging.info(f"Materializing data for {len(symbols)} symbols...")
         final_df = combined_lazy.collect()
