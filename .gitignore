@@ -12,3 +12,12 @@ data/
 logs/
 *.parquet
 *.log
+
+# Node / Frontend
+node_modules/
+hermes-frontend/node_modules/
+hermes-frontend/dist/
+dist/
+.DS_Store
+.vite/
+hermes-frontend/.vite/
