@@ -1,10 +1,14 @@
 # ⚡ Hermes Quantitative Engine
 
-![Hermes Dashboard](https://img.shields.io/badge/Status-Active-success)
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&pause=1000&color=2962FF&width=435&lines=Algo+Trading+Engine+for+India;Vectorized+Backtesting+in+Rust;Premium+Visualizations)](https://git.io/typing-svg)
+
+![Status](https://img.shields.io/badge/Status-Active-success)
 ![Python](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Polars-blue)
 ![React](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-cyan)
 
 **Hermes** is a high-performance, vectorized algorithmic trading engine designed for the Indian Stock Market. It combines the raw speed of **Rust-based Polars** for backtesting with a premium **React + Lightweight Charts** dashboard for visualization.
+
+![Hermes Demo](demo.webp)
 
 ---
 
