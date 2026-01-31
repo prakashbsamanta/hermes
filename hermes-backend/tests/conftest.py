@@ -16,9 +16,13 @@ def sample_ohlcv_df():
     )
 
 @pytest.fixture
-def temp_data_dir(tmp_path):
+def temp_data_dir(tmp_path, sample_ohlcv_df):
     d = tmp_path / "data"
     d.mkdir()
     d_minute = d / "minute"
     d_minute.mkdir()
+    
+    # Write sample parquet file
+    sample_ohlcv_df.write_parquet(d_minute / "TEST_SYM.parquet")
+    
     return str(d_minute)
