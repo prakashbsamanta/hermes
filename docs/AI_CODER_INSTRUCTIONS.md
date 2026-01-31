@@ -73,7 +73,9 @@ This document serves as the supreme law for this project. All contributors (AI a
     *   **Integration Tests**: Test the full API flow (`/backtest`) with known inputs.
 *   **Linting**: Use `ruff` (Python) and `eslint` (JS) to enforce standard formatting automatically.
 *   **Logging**: Use structured logging (JSON preferred for prod). Log *events* ("Strategy Started"), not just noise.
-*   **Coverage**: Maintain **>90%** global code coverage. CI pipeline must fail if this threshold is not met or if any unit/integration tests fail.
+*   **Coverage**: Maintain **>90%** global code coverage.
+    *   **CI Enforcement**: The GitHub Actions pipeline will fail if checks are not met.
+    *   **Local Enforcement**: A git `pre-push` hook is installed to prevent pushing if tests or coverage fail locally.
 
 ---
 
