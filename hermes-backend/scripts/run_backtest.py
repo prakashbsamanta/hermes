@@ -34,7 +34,7 @@ def main():
     symbol = args.symbol.upper()
     data_dir = os.path.join(parent_dir, "data/minute")
     
-    print(f"--- Hermes Backtest Verification ---")
+    print("--- Hermes Backtest Verification ---")
     print(f"Target: {symbol}")
     print(f"Strategy: {args.strategy}")
     

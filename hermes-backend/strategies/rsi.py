@@ -1,8 +1,5 @@
 import polars as pl
-try:
-    from engine.strategy import Strategy
-except ImportError:
-    from hermes_backend.engine.strategy import Strategy
+from engine.strategy import Strategy
 
 class RSIStrategy(Strategy):
     """
@@ -19,7 +16,7 @@ class RSIStrategy(Strategy):
 
         # 1. Calculate Price Changes
         # null_strategy='ignore' is important for first row
-        delta = df.select(pl.col("close").diff()).to_series()
+
 
         # 2. Separate Gains and Losses
         # We need to replicate:
@@ -49,8 +46,8 @@ class RSIStrategy(Strategy):
         # RS = AvgGain / AvgLoss
         
         df_indicators = df_rsi.with_columns([
-            pl.col("gain").ewm_mean(com=period - 1, min_periods=period).alias("avg_gain"),
-            pl.col("loss").ewm_mean(com=period - 1, min_periods=period).alias("avg_loss")
+            pl.col("gain").ewm_mean(com=period - 1, min_samples=period).alias("avg_gain"),
+            pl.col("loss").ewm_mean(com=period - 1, min_samples=period).alias("avg_loss")
         ]).with_columns([
             (pl.col("avg_gain") / pl.col("avg_loss")).alias("rs")
         ]).with_columns([

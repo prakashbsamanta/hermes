@@ -6,7 +6,6 @@ import aiohttp
 import argparse
 import polars as pl
 from datetime import datetime, timedelta
-from io import StringIO
 from dotenv import load_dotenv
 
 # --- Configuration ---
@@ -242,7 +241,7 @@ async def main_async():
 
     try:
         instruments_df = fetch_local_instruments()
-    except Exception as e:
+    except Exception:
         return
 
     # Determine Work List

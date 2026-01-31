@@ -1,18 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
-import { api } from './services/api';
-import type { BacktestRequest } from './services/api';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useBacktest } from './hooks/useBacktest';
 import { ChartComponent } from './components/ChartComponent';
+import { MetricCard } from './components/MetricCard';
 import { TrendingUp, Activity, DollarSign, AlertTriangle } from 'lucide-react';
 
 function App() {
   const [symbol, setSymbol] = useState("AARTIIND");
   const [strategy, setStrategy] = useState("RSIStrategy");
 
-  const backtestMutation = useMutation({
-    mutationFn: (req: BacktestRequest) => api.runBacktest(req)
-  });
+  const backtestMutation = useBacktest();
 
   const handleRun = () => {
     backtestMutation.mutate({
@@ -173,48 +170,6 @@ function App() {
       )}
 
     </div>
-  );
-}
-
-const MetricCard = ({ label, value, icon, idx }: { label: string, value: string, icon: React.ReactNode, idx: number }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: idx * 0.1 }}
-      whileHover={{ scale: 1.02, backgroundColor: 'rgba(30, 41, 59, 1)' }}
-      className="bg-surface p-4 rounded-xl border border-slate-700 flex items-center justify-between hover:border-slate-500 transition cursor-default shadow-lg"
-    >
-      <div>
-        <p className="text-sm text-slate-400">{label}</p>
-        <CountUp value={value} />
-      </div>
-      <div className="p-3 bg-slate-900 rounded-full shadow-inner">
-        {icon}
-      </div>
-    </motion.div>
-  )
-}
-
-const CountUp = ({ value }: { value: string }) => {
-  // Simple heuristic parsing
-  const isPercent = value.includes('%');
-  const numericValue = parseFloat(value.replace(/[^0-9.-]/g, ''));
-  const suffix = isPercent ? '%' : '';
-
-  const spring = useSpring(0, { bounce: 0, duration: 1000 });
-  const displayValue = useTransform(spring, (current) =>
-    current.toFixed(2) + suffix
-  );
-
-  useEffect(() => {
-    spring.set(numericValue);
-  }, [numericValue, spring]);
-
-  return (
-    <motion.p className="text-2xl font-bold mt-1 text-white">
-      {isNaN(numericValue) ? value : displayValue}
-    </motion.p>
   );
 }
 

@@ -141,6 +141,5 @@ async def run_backtest(request: BacktestRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logging.error(f"Backtest execution failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+addopts = "--cov=. --cov-report=term-missing"
+
+[tool.coverage.run]
+omit = [
+    "data_seeder.py",
+    "main.py",
+    "scripts/*",
+    "test_api.py",
+    "tests/*"
+]

@@ -1,10 +1,6 @@
 import polars as pl
-try:
-    from engine.strategy import Strategy
-    from engine.mtf_utils import resample_data, merge_mtf
-except ImportError:
-    from hermes_backend.engine.strategy import Strategy
-    from hermes_backend.engine.mtf_utils import resample_data, merge_mtf
+from engine.strategy import Strategy
+from engine.mtf_utils import resample_data, merge_mtf
 
 class MTFTrendFollowingStrategy(Strategy):
     """
@@ -40,8 +36,8 @@ class MTFTrendFollowingStrategy(Strategy):
         
         period = 14
         df_indicators = df_indicators.with_columns([
-            pl.col("gain").ewm_mean(com=period - 1, min_periods=period).alias("avg_gain"),
-            pl.col("loss").ewm_mean(com=period - 1, min_periods=period).alias("avg_loss")
+            pl.col("gain").ewm_mean(com=period - 1, min_samples=period).alias("avg_gain"),
+            pl.col("loss").ewm_mean(com=period - 1, min_samples=period).alias("avg_loss")
         ]).with_columns([
             (pl.col("avg_gain") / pl.col("avg_loss")).alias("rs")
         ]).with_columns([
@@ -57,7 +53,7 @@ class MTFTrendFollowingStrategy(Strategy):
         # So it becomes 'bullish_trend_htf'.
         
         df_triggers = df_indicators.with_columns([
-            pl.when( (pl.col("rsi") < 30) & (pl.col("bullish_trend_htf") == True) )
+            pl.when( (pl.col("rsi") < 30) & (pl.col("bullish_trend_htf")) )
             .then(1) # Buy
             .when(pl.col("rsi") > 70)
             .then(0) # Sell

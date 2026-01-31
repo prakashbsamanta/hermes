@@ -1,6 +1,14 @@
+fastapi
+uvicorn
 polars
 requests
 python-dotenv
 pyarrow
 aiohttp
 numpy
+pydantic-settings
+ruff
+mypy
+types-requests
+pytest
+pytest-cov

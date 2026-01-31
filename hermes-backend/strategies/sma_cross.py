@@ -1,10 +1,7 @@
 import polars as pl
 # Adjust import based on how we run it. 
 # For now, assuming we run as a module or with path set.
-try:
-    from engine.strategy import Strategy
-except ImportError:
-    from hermes_backend.engine.strategy import Strategy
+from engine.strategy import Strategy
 
 
 class SMACrossover(Strategy):

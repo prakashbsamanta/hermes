@@ -1,8 +1,5 @@
 import polars as pl
-try:
-    from engine.strategy import Strategy
-except ImportError:
-    from hermes_backend.engine.strategy import Strategy
+from engine.strategy import Strategy
 
 class BollingerBandsStrategy(Strategy):
     """

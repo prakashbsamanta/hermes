@@ -3,14 +3,13 @@ import time
 import subprocess
 import sys
 import os
-import signal
 
 def test_api():
     print("--- Starting API Verification ---")
     
     # 1. Start Server
     # We use Popen to start it in background
-    cwd = os.path.join(os.getcwd(), "hermes-backend")
+    cwd = os.getcwd()
     # use correct venv python
     python_bin = os.path.join(cwd, "venv", "bin", "python3")
     
@@ -34,7 +33,7 @@ def test_api():
                 print("Server is UP!")
                 ready = True
                 break
-        except:
+        except Exception:
             pass
         time.sleep(1)
         print(f"Waiting... {i+1}")
@@ -85,7 +84,7 @@ def test_api():
         proc.terminate()
         try:
             proc.wait(timeout=2)
-        except:
+        except Exception:
             proc.kill()
         print("Done.")
 
