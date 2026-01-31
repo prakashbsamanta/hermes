@@ -1,9 +1,8 @@
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
-
-from unittest.mock import patch
 
 def test_health_check():
     response = client.get("/")
