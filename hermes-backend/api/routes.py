@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 import inspect
-from typing import Dict, Type
+from typing import Dict, Type, List
 
 # Add parent directory to path to allow imports if running from top level
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +16,7 @@ from engine.loader import DataLoader # noqa: E402
 from engine.core import BacktestEngine # noqa: E402
 from engine.strategy import Strategy # noqa: E402
 import strategies # noqa: E402
-from .models import BacktestRequest, BacktestResponse, ChartPoint, SignalPoint # noqa: E402
+from .models import BacktestRequest, BacktestResponse, ChartPoint, SignalPoint, CandlePoint, IndicatorPoint # noqa: E402
 
 router = APIRouter()
 
@@ -91,22 +91,72 @@ async def run_backtest(request: BacktestRequest):
         # But for "Authenticity" user requested, let's send full data first or reasonable resample.
         # Let's resample to 1-hour for the chart if length > 5000 points, to keep UI snappy.
         
-        eq_df = result_df.select(["timestamp", "equity"])
-        if len(eq_df) > 5000:
-            # Resample to hourly to reduce payload size for UI visualization
-            eq_df = (
-                eq_df.sort("timestamp")
-                .group_by_dynamic("timestamp", every="1h")
-                .agg(pl.col("equity").last())
-                .drop_nulls()
-            )
+        # eq_df deprecated, using unified chart_df above
+        # eq_df = result_df.select(["timestamp", "equity"])
+        # if len(eq_df) > 5000: ...
             
         # Convert timestamps to unix seconds
         eq_curve = []
-        rows = eq_df.rows(named=True)
-        for row in rows:
-            ts = row["timestamp"].timestamp() # float seconds
-            eq_curve.append(ChartPoint(time=int(ts), value=row["equity"]))
+        candles = []
+        indicators: Dict[str, List[IndicatorPoint]] = {}
+        
+        # 6. Optimize for Visualization (Downsampling)
+        # Identify Indicator Columns (Float columns that are not OHLCV or Signal/Pos)
+        exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "equity", "trade_action"}
+        indicator_cols = [c for c in result_df.columns if c not in exclude_cols and result_df[c].dtype in [pl.Float64, pl.Float32]]
+        
+        # Determine sampling interval
+        # If > 5000 points, we aggregate to Hourly (or bigger)
+        # This keeps the UI responsive.
+        chart_df = result_df
+        if len(result_df) > 5000:
+             # Define aggregation dict
+            agg_dict = {
+                "open": pl.col("open").first(),
+                "high": pl.col("high").max(),
+                "low": pl.col("low").min(),
+                "close": pl.col("close").last(),
+                "volume": pl.col("volume").sum(),
+                "equity": pl.col("equity").last()
+            }
+            # Add aggregations for indicators (usually taking 'last' value is safe for overlays like SMA, or 'last' for RSI)
+            for col in indicator_cols:
+                agg_dict[col] = pl.col(col).last()
+                
+            chart_df = (
+                result_df.sort("timestamp")
+                .group_by_dynamic("timestamp", every="1h")
+                .agg(**agg_dict)
+                .drop_nulls()
+            )
+
+        # Convert to Output Models
+        chart_rows = chart_df.rows(named=True)
+        
+        # Initialize indicator lists
+        for col in indicator_cols:
+            indicators[col] = []
+            
+        for row in chart_rows:
+            ts = int(row["timestamp"].timestamp())
+            
+            # Equity Curve
+            eq_curve.append(ChartPoint(time=ts, value=row["equity"]))
+            
+            # Candles
+            candles.append(CandlePoint(
+                time=ts,
+                open=row["open"],
+                high=row["high"],
+                low=row["low"],
+                close=row["close"],
+                volume=row["volume"]
+            ))
+            
+            # Indicators
+            for col in indicator_cols:
+                if row[col] is not None:
+                    indicators[col].append(IndicatorPoint(time=ts, value=row[col]))
             
         # Extract Signals
         # Where signal != 0 AND != null
@@ -135,7 +185,9 @@ async def run_backtest(request: BacktestRequest):
             strategy=request.strategy,
             metrics=metrics,
             equity_curve=eq_curve,
-            signals=signals
+            signals=signals,
+            candles=candles,
+            indicators=indicators
         )
         
     except HTTPException as he:

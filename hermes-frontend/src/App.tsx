@@ -100,7 +100,11 @@ function App() {
                 exit={{ opacity: 0 }}
                 className="h-full"
               >
-                <ChartComponent data={data.equity_curve} signals={data.signals} />
+                <ChartComponent
+                  candles={data.candles}
+                  indicators={data.indicators}
+                  signals={data.signals}
+                />
               </motion.div>
             ) : (
               <motion.div

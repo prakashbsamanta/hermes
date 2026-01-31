@@ -15,3 +15,17 @@ export interface SignalPoint {
     type: 'buy' | 'sell';
     price: number;
 }
+
+export interface CandlePoint {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+export interface IndicatorPoint {
+    time: number;
+    value: number;
+}

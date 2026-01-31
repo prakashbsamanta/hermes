@@ -16,11 +16,25 @@ class SignalPoint(BaseModel):
     type: str # "buy" or "sell"
     price: float
 
+class CandlePoint(BaseModel):
+    time: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+class IndicatorPoint(BaseModel):
+    time: int
+    value: float
+
 class BacktestResponse(BaseModel):
     symbol: str
     strategy: str
     metrics: Dict[str, Any]
     equity_curve: List[ChartPoint]
     signals: List[SignalPoint]
+    candles: List[CandlePoint] = []
+    indicators: Dict[str, List[IndicatorPoint]] = {}
     status: str = "success"
     error: Optional[str] = None

@@ -1,21 +1,23 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import type { IChartApi, Time } from 'lightweight-charts';
-import type { ChartPoint, SignalPoint } from '../services/api';
+import type { CandlePoint, IndicatorPoint, SignalPoint } from '../services/api';
 
 interface ChartProps {
-    data: ChartPoint[];
+    candles: CandlePoint[];
+    indicators?: Record<string, IndicatorPoint[]>;
     signals: SignalPoint[];
 }
 
-export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
+export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, signals }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
+        if (!candles || candles.length === 0) return;
 
-        console.log("Initializing Chart (v5)...");
+        console.log("Initializing Candlestick Chart...");
 
         let chart: IChartApi;
 
@@ -32,31 +34,71 @@ export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
                 },
                 width: chartContainerRef.current.clientWidth,
                 height: 400,
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: false,
+                }
             });
 
             chartRef.current = chart;
 
-            // v5 API: Use addSeries(SeriesType, Options)
-            const areaSeries = chart.addSeries(AreaSeries, {
-                lineColor: '#2962FF',
-                topColor: '#2962FF',
-                bottomColor: 'rgba(41, 98, 255, 0.28)',
+            // 1. Candlestick Series (Main Price)
+            const candleSeries = chart.addSeries(CandlestickSeries, {
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderVisible: false,
+                wickUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
             });
 
-            // Process Data
-            const chartData = data.map(d => ({
-                time: d.time as Time,
-                value: d.value
+            const candleData = candles.map(c => ({
+                time: c.time as Time,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
             }));
 
-            // Sort Data (Required by Lightweight Charts)
-            chartData.sort((a, b) => (a.time as number) - (b.time as number));
+            // Sort by time
+            candleData.sort((a, b) => (a.time as number) - (b.time as number));
 
-            if (chartData.length > 0) {
-                areaSeries.setData(chartData);
+            candleSeries.setData(candleData);
+
+            // 2. Indicators (Overlays)
+            // e.g. SMA, Bollinger
+            // TODO: In future, separate pane for RSI. For now, we plot EVERYTHING on main chart.
+            // If values are ~ price (like SMA), it looks good.
+            // If values are 0-100 (RSI), it will flatten the candle chart.
+            // Heuristic: Check if first value is close to price?
+
+            if (indicators) {
+                const colors = ['#2962FF', '#E91E63', '#FF9800', '#9C27B0', '#00BCD4'];
+                let cIdx = 0;
+
+                Object.entries(indicators).forEach(([name, data]) => {
+                    // Simple heuristic: If avg value < 200 and price > 1000, probably separate scale needed.
+                    // For now, let's just plot them all and see.
+                    // LightWeight Charts supports right/left axis or overlays.
+
+                    const lineSeries = chart.addSeries(LineSeries, {
+                        color: colors[cIdx % colors.length],
+                        lineWidth: 2,
+                        title: name,
+                        // crosshairMarkerVisible: true,
+                    });
+
+                    const lineData = data.map(d => ({
+                        time: d.time as Time,
+                        value: d.value
+                    }));
+
+                    lineData.sort((a, b) => (a.time as number) - (b.time as number));
+                    lineSeries.setData(lineData);
+                    cIdx++;
+                });
             }
 
-            // Process Signals (Markers)
+            // 3. Signals (Markers)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const markers: any[] = signals.map(s => ({
                 time: s.time as Time,
@@ -67,12 +109,11 @@ export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
                 size: 1,
             }));
 
-            // Sort Markers
             markers.sort((a, b) => (a.time as number) - (b.time as number));
 
             if (markers.length > 0) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (areaSeries as any).setMarkers(markers);
+                (candleSeries as any).setMarkers(markers);
             }
 
             chart.timeScale().fitContent();
@@ -91,9 +132,9 @@ export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
             };
 
         } catch (err) {
-            console.error("Stats Chart Rendering Error:", err);
+            console.error("Chart Rendering Error:", err);
         }
-    }, [data, signals]);
+    }, [candles, indicators, signals]);
 
     return (
         <div ref={chartContainerRef} className="w-full h-[400px]" />
