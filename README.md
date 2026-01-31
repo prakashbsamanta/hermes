@@ -60,7 +60,16 @@ pip install -r requirements.txt
 # (OR manually: pip install polars fastapi uvicorn pandas requests)
 ```
 
-### 2. Run the API Server
+### 🚀 Quick Start (One Command)
+Run the entire stack (Backend + Frontend) with a single script:
+```bash
+./start_dev.sh
+```
+
+### Manual Setup
+If you prefer running components individually:
+
+### 1. Run the API Server
 ```bash
 # From project root
 hermes-backend/venv/bin/uvicorn hermes-backend.main:app --reload --port 8000

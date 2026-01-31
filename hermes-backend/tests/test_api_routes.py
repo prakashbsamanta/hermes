@@ -46,3 +46,23 @@ def test_backtest_missing_params():
     }
     response = client.post("/backtest", json=payload)
     assert response.status_code == 422 
+
+def test_get_instruments(temp_data_dir):
+    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+        response = client.get("/instruments")
+        assert response.status_code == 200
+        assert "TEST_SYM" in response.json()
+
+def test_get_market_data(temp_data_dir):
+    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+        response = client.get("/data/TEST_SYM")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["symbol"] == "TEST_SYM"
+        assert len(data["candles"]) > 0
+        assert "open" in data["candles"][0]
+
+def test_get_market_data_not_found(temp_data_dir):
+    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+        response = client.get("/data/NON_EXISTENT")
+        assert response.status_code == 404

@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 import inspect
-from typing import Dict, Type, List
+from typing import Dict, Type, List, Any
 
 # Add parent directory to path to allow imports if running from top level
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +42,88 @@ def get_strategies() -> Dict[str, Type[Strategy]]:
         if name != "Strategy"
     }
 
+@router.get("/instruments", response_model=List[str])
+async def list_instruments():
+    try:
+        data_dir = get_data_dir()
+        # List all parquet files
+        files = [f for f in os.listdir(data_dir) if f.endswith(".parquet")]
+        # Extract symbol names (filename without extension)
+        symbols = [os.path.splitext(f)[0] for f in files]
+        return sorted(symbols)
+    except Exception as e:
+        # If data dir not found or empty, return empty list
+        logging.warning(f"Could not list instruments: {str(e)}")
+        return []
+
+def resample_data(df: pl.DataFrame, min_points: int = 5000) -> pl.DataFrame:
+    """Downsample large datasets to hourly candles for visualization."""
+    if len(df) <= min_points:
+        return df
+        
+    # Define aggregation dict for basic OHLCV
+    agg_dict = {
+        "open": pl.col("open").first(),
+        "high": pl.col("high").max(),
+        "low": pl.col("low").min(),
+        "close": pl.col("close").last(),
+        "volume": pl.col("volume").sum(),
+    }
+    
+    # If equity/indicators exist, add them
+    if "equity" in df.columns:
+        agg_dict["equity"] = pl.col("equity").last()
+        
+    # Add other float columns as indicators
+    exclude = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "equity", "trade_action"}
+    for col in df.columns:
+        if col not in exclude and df[col].dtype in [pl.Float64, pl.Float32]:
+            agg_dict[col] = pl.col(col).last()
+
+    return (
+        df.sort("timestamp")
+        .group_by_dynamic("timestamp", every="1h")
+        .agg(**agg_dict)
+        .drop_nulls()
+    )
+
+@router.get("/data/{symbol}", response_model=Dict[str, Any])
+async def get_market_data(symbol: str):
+    try:
+        data_dir = get_data_dir()
+        loader = DataLoader(data_dir=data_dir)
+        try:
+            df = loader.load_data([symbol.upper()])
+        except Exception:
+            raise HTTPException(status_code=404, detail=f"Data not found for {symbol}")
+
+        # Resample for chart
+        chart_df = resample_data(df)
+        
+        # Convert to CandlePoint list
+        candles = []
+        rows = chart_df.rows(named=True)
+        for row in rows:
+            ts = int(row["timestamp"].timestamp())
+            candles.append(CandlePoint(
+                time=ts,
+                open=row["open"],
+                high=row["high"],
+                low=row["low"],
+                close=row["close"],
+                volume=row["volume"]
+            ))
+            
+        return {
+            "symbol": symbol,
+            "candles": candles
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logging.error(f"Failed to fetch data for {symbol}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest(request: BacktestRequest):
     try:
@@ -78,62 +160,20 @@ async def run_backtest(request: BacktestRequest):
         # 5. Process Results
         metrics = engine.calculate_metrics(result_df)
         
-        # Convert Equity Curve to List[ChartPoint]
-        # We need timestamp (int seconds) and equity (float)
-        # Polars to list of dicts is fast.
-        
-        # Ensure timestamp is datetime and sort
-        # Assuming Data Loader sorts it.
-        
-        # Downsample for chart? Not for now, send all minute points or maybe 1h if huge?
-        # AARTIIND minute data is ~101k rows. Sending 101k JSON objects is heavy (~10MB+).
-        # For a responsive API, we might want to downsample to e.g. 500-1000 points.
-        # But for "Authenticity" user requested, let's send full data first or reasonable resample.
-        # Let's resample to 1-hour for the chart if length > 5000 points, to keep UI snappy.
-        
-        # eq_df deprecated, using unified chart_df above
-        # eq_df = result_df.select(["timestamp", "equity"])
-        # if len(eq_df) > 5000: ...
-            
-        # Convert timestamps to unix seconds
-        eq_curve = []
-        candles = []
-        indicators: Dict[str, List[IndicatorPoint]] = {}
-        
         # 6. Optimize for Visualization (Downsampling)
+        chart_df = resample_data(result_df)
+
         # Identify Indicator Columns (Float columns that are not OHLCV or Signal/Pos)
         exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "equity", "trade_action"}
         indicator_cols = [c for c in result_df.columns if c not in exclude_cols and result_df[c].dtype in [pl.Float64, pl.Float32]]
         
-        # Determine sampling interval
-        # If > 5000 points, we aggregate to Hourly (or bigger)
-        # This keeps the UI responsive.
-        chart_df = result_df
-        if len(result_df) > 5000:
-             # Define aggregation dict
-            agg_dict = {
-                "open": pl.col("open").first(),
-                "high": pl.col("high").max(),
-                "low": pl.col("low").min(),
-                "close": pl.col("close").last(),
-                "volume": pl.col("volume").sum(),
-                "equity": pl.col("equity").last()
-            }
-            # Add aggregations for indicators (usually taking 'last' value is safe for overlays like SMA, or 'last' for RSI)
-            for col in indicator_cols:
-                agg_dict[col] = pl.col(col).last()
-                
-            chart_df = (
-                result_df.sort("timestamp")
-                .group_by_dynamic("timestamp", every="1h")
-                .agg(**agg_dict)
-                .drop_nulls()
-            )
-
         # Convert to Output Models
         chart_rows = chart_df.rows(named=True)
         
-        # Initialize indicator lists
+        # Initialize lists
+        eq_curve = []
+        candles = []
+        indicators: Dict[str, List[IndicatorPoint]] = {}
         for col in indicator_cols:
             indicators[col] = []
             

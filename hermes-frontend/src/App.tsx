@@ -1,15 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBacktest } from './hooks/useBacktest';
+import { api, type MarketDataResponse } from './services/api';
 import { ChartComponent } from './components/ChartComponent';
 import { MetricCard } from './components/MetricCard';
 import { TrendingUp, Activity, DollarSign, AlertTriangle } from 'lucide-react';
 
 function App() {
   const [symbol, setSymbol] = useState("AARTIIND");
+  // State for raw data vs backtest results
+  const [marketData, setMarketData] = useState<MarketDataResponse | null>(null);
+  const [instruments, setInstruments] = useState<string[]>([]);
   const [strategy, setStrategy] = useState("RSIStrategy");
 
   const backtestMutation = useBacktest();
+
+  const loadMarketData = async (sym: string) => {
+    try {
+      // Clear backtest results so we show raw data only
+      backtestMutation.reset();
+      const data = await api.getMarketData(sym);
+      setMarketData(data);
+    } catch (err) {
+      console.error("Failed to load market data", err);
+    }
+  };
+
+  // Fetch Instruments on Mount
+  useEffect(() => {
+    api.getInstruments().then(data => {
+      setInstruments(data);
+      if (data.length > 0) {
+        // If default symbol is not in list, pick first available
+        if (!data.includes(symbol)) {
+          setSymbol(data[0]);
+          loadMarketData(data[0]); // Load market data for the new default
+        } else {
+          // Load default
+          loadMarketData(symbol);
+        }
+      }
+    }).catch(err => console.error("Failed to fetch instruments:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When symbol changes, load pure market data.
+  // We do NOT auto-run backtest anymore per user request.
+  const handleSymbolChange = (newSymbol: string) => {
+    setSymbol(newSymbol);
+    loadMarketData(newSymbol);
+  };
 
   const handleRun = () => {
     backtestMutation.mutate({
@@ -19,7 +59,25 @@ function App() {
     });
   };
 
-  const data = backtestMutation.data;
+  // Determine what to show
+  // If mutation has data -> Show Backtest Results (Candles + Indicators + Signals)
+  // If mutation is idle/reset -> Show Market Data (Candles Only)
+
+  const activeData = backtestMutation.data
+    ? {
+      candles: backtestMutation.data.candles,
+      indicators: backtestMutation.data.indicators,
+      signals: backtestMutation.data.signals,
+      metrics: backtestMutation.data.metrics
+    }
+    : marketData
+      ? {
+        candles: marketData.candles,
+        indicators: undefined, // No indicators in raw mode
+        signals: [], // No signals in raw mode
+        metrics: undefined
+      }
+      : null;
 
   // Staggered Animation Variants
   const containerVariants = {
@@ -63,11 +121,25 @@ function App() {
             <option value="MTFTrendFollowingStrategy">MTF Trend Following</option>
           </motion.select>
 
-          <motion.input
-            whileFocus={{ scale: 1.05 }}
-            type="text" value={symbol} onChange={e => setSymbol(e.target.value)}
-            className="bg-surface border border-slate-700 rounded px-4 py-2 w-32 text-center outline-none focus:border-primary"
-          />
+          {/* Instrument Selector */}
+          {instruments.length > 0 ? (
+            <motion.select
+              whileHover={{ scale: 1.02 }}
+              value={symbol} onChange={e => handleSymbolChange(e.target.value)}
+              className="bg-surface border border-slate-700 rounded px-4 py-2 cursor-pointer outline-none focus:border-primary"
+            >
+              {instruments.map(inst => (
+                <option key={inst} value={inst}>{inst}</option>
+              ))}
+            </motion.select>
+          ) : (
+            <motion.input
+              whileFocus={{ scale: 1.05 }}
+              type="text" value={symbol} onChange={e => handleSymbolChange(e.target.value)}
+              className="bg-surface border border-slate-700 rounded px-4 py-2 w-32 text-center outline-none focus:border-primary"
+              placeholder="Symbol"
+            />
+          )}
 
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -92,7 +164,7 @@ function App() {
           className="lg:col-span-3 bg-surface rounded-xl border border-slate-700 p-4 shadow-xl relative min-h-[500px]"
         >
           <AnimatePresence mode='wait'>
-            {data ? (
+            {activeData ? (
               <motion.div
                 key="chart"
                 initial={{ opacity: 0 }}
@@ -101,9 +173,9 @@ function App() {
                 className="h-full"
               >
                 <ChartComponent
-                  candles={data.candles}
-                  indicators={data.indicators}
-                  signals={data.signals}
+                  candles={activeData.candles}
+                  indicators={activeData.indicators}
+                  signals={activeData.signals}
                 />
               </motion.div>
             ) : (
@@ -114,7 +186,7 @@ function App() {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 flex items-center justify-center text-slate-500"
               >
-                Select a strategy and run backtest to visualize results.
+                Loading Market Data...
               </motion.div>
             )}
           </AnimatePresence>
@@ -130,33 +202,37 @@ function App() {
           <motion.h2 variants={itemVariants} className="text-xl font-bold text-slate-400">Performance Metrics</motion.h2>
 
           <AnimatePresence>
-            {data && (
+            {activeData && activeData.metrics ? (
               <>
                 <MetricCard
                   label="Total Return"
-                  value={data.metrics["Total Return"]}
+                  value={activeData.metrics["Total Return"]}
                   icon={<TrendingUp className="text-accent" />}
                   idx={0}
                 />
                 <MetricCard
                   label="Final Equity"
-                  value={data.metrics["Final Equity"]}
+                  value={activeData.metrics["Final Equity"]}
                   icon={<DollarSign className="text-success" />}
                   idx={1}
                 />
                 <MetricCard
                   label="Sharpe Ratio"
-                  value={data.metrics["Sharpe Ratio"]}
+                  value={activeData.metrics["Sharpe Ratio"]}
                   icon={<Activity className="text-primary" />}
                   idx={2}
                 />
                 <MetricCard
                   label="Max Drawdown"
-                  value={data.metrics["Max Drawdown"]}
+                  value={activeData.metrics["Max Drawdown"]}
                   icon={<AlertTriangle className="text-danger" />}
                   idx={3}
                 />
               </>
+            ) : (
+              <div className="text-slate-500 text-sm italic p-4 border border-dashed border-slate-700 rounded-lg">
+                Run a backtest to see strategy performance metrics.
+              </div>
             )}
           </AnimatePresence>
         </motion.div>

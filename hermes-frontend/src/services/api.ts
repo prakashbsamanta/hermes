@@ -46,9 +46,22 @@ export interface BacktestResponse {
     error?: string;
 }
 
+export interface MarketDataResponse {
+    symbol: string;
+    candles: CandlePoint[];
+}
+
 export const api = {
     runBacktest: async (req: BacktestRequest): Promise<BacktestResponse> => {
         const response = await axios.post<BacktestResponse>(`${API_URL}/backtest`, req);
+        return response.data;
+    },
+    getInstruments: async (): Promise<string[]> => {
+        const response = await axios.get<string[]>(`${API_URL}/instruments`);
+        return response.data;
+    },
+    getMarketData: async (symbol: string): Promise<MarketDataResponse> => {
+        const response = await axios.get<MarketDataResponse>(`${API_URL}/data/${symbol}`);
         return response.data;
     }
 };
