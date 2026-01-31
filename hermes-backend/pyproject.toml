@@ -11,8 +11,9 @@ addopts = "--cov=. --cov-report=term-missing"
 [tool.coverage.run]
 omit = [
     "data_seeder.py",
-    "main.py",
     "scripts/*",
-    "test_api.py",
-    "tests/*"
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+explicit_package_bases = true

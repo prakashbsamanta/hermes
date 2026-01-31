@@ -1,4 +1,3 @@
-import pytest
 import polars as pl
 from strategies.rsi import RSIStrategy
 

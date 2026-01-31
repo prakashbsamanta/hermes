@@ -1,4 +1,3 @@
-import pytest
 import polars as pl
 from engine.loader import DataLoader
 import os

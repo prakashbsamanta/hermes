@@ -6,7 +6,7 @@ class Strategy(ABC):
     Abstract Base Class for Vectorized Strategies.
     Strategies must work on the entire DataFrame at once (Polars) for maximum speed.
     """
-    def __init__(self, params: dict = None):
+    def __init__(self, params: dict | None = None):
         self.params = params or {}
 
     @abstractmethod

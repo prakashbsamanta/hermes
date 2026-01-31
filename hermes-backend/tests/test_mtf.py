@@ -1,4 +1,3 @@
-import pytest
 import polars as pl
 from strategies.mtf_trend_following import MTFTrendFollowingStrategy
 

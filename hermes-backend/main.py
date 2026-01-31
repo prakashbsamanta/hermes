@@ -9,7 +9,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from api.routes import router
+from api.routes import router # noqa: E402
 
 app = FastAPI(title="Hermes Backtest API", version="0.1.0")
 

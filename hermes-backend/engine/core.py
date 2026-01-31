@@ -1,6 +1,7 @@
 import polars as pl
 import numpy as np
 import logging
+from typing import cast
 from .strategy import Strategy
 
 class BacktestEngine:
@@ -108,17 +109,18 @@ class BacktestEngine:
         # This is a rough approximation.
         returns = df["strategy_return"].drop_nulls()
         if len(returns) > 0:
-            mean_ret = returns.mean()
-            std_dev = returns.std()
+            mean_ret = cast(float, returns.mean())
+            std_dev = cast(float, returns.std())
             sharpe = 0.0
-            if std_dev != 0:
-                sharpe = (mean_ret / std_dev) * np.sqrt(252 * 375) # 375 minutes in a trading day
+            # Ensure not None and not zero
+            if mean_ret is not None and std_dev is not None and std_dev != 0:
+                sharpe = float((mean_ret / std_dev) * np.sqrt(252 * 375))
         else:
             sharpe = 0.0
 
         return {
             "Total Return": f"{total_return:.2%}",
-            "Max Drawdown": f"{max_drawdown:.2%}",
+            "Max Drawdown": f"{cast(float, max_drawdown or 0.0):.2%}",
             "Sharpe Ratio": f"{sharpe:.2f}",
             "Final Equity": f"{df['equity'][-1]:.2f}"
         }

@@ -1,7 +1,5 @@
 import pytest
 import polars as pl
-import os
-import shutil
 
 @pytest.fixture
 def sample_ohlcv_df():

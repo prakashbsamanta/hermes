@@ -23,8 +23,8 @@ def test_engine_run(engine, sample_ohlcv_df):
     # Initial cash 10000.
     # Returns should match market returns exactly since we are always long (signal=1)
     
-    market_returns = (sample_ohlcv_df["close"] / sample_ohlcv_df["close"].shift(1) - 1).fill_null(0.0)
-    expected_equity = 10000.0 * (1 + market_returns.shift(1).fill_null(0.0)).cum_prod()
+    # market_returns = (sample_ohlcv_df["close"] / sample_ohlcv_df["close"].shift(1) - 1).fill_null(0.0)
+    # expected_equity = 10000.0 * (1 + market_returns.shift(1).fill_null(0.0)).cum_prod()
     
     # Note: Engine shifts signal by 1.
     # Signal at T affects T+1 return.

@@ -1,7 +1,7 @@
 export interface BacktestRequest {
     symbol: string;
     strategy: string;
-    params: Record<string, any>;
+    params: Record<string, unknown>;
     initial_cash?: number;
 }
 

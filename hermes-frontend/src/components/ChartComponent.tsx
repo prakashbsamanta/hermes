@@ -57,7 +57,8 @@ export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
             }
 
             // Process Signals (Markers)
-            const markers = signals.map(s => ({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const markers: any[] = signals.map(s => ({
                 time: s.time as Time,
                 position: s.type === 'buy' ? 'belowBar' : 'aboveBar',
                 color: s.type === 'buy' ? '#10b981' : '#ef4444',
@@ -70,7 +71,8 @@ export const ChartComponent: React.FC<ChartProps> = ({ data, signals }) => {
             markers.sort((a, b) => (a.time as number) - (b.time as number));
 
             if (markers.length > 0) {
-                areaSeries.setMarkers(markers as any[]);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (areaSeries as any).setMarkers(markers);
             }
 
             chart.timeScale().fitContent();

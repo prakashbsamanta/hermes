@@ -12,11 +12,11 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
-from engine.loader import DataLoader
-from engine.core import BacktestEngine
-from engine.strategy import Strategy
-import strategies
-from .models import BacktestRequest, BacktestResponse, ChartPoint, SignalPoint
+from engine.loader import DataLoader # noqa: E402
+from engine.core import BacktestEngine # noqa: E402
+from engine.strategy import Strategy # noqa: E402
+import strategies # noqa: E402
+from .models import BacktestRequest, BacktestResponse, ChartPoint, SignalPoint # noqa: E402
 
 router = APIRouter()
 

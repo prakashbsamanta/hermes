@@ -1,5 +1,3 @@
-import pytest
-import polars as pl
 from strategies.macd import MACDStrategy
 from strategies.bollinger import BollingerBandsStrategy
 from strategies.sma_cross import SMACrossover

@@ -8,9 +8,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from engine.loader import DataLoader
-from engine.core import BacktestEngine
-import strategies
+from engine.loader import DataLoader # noqa: E402
+from engine.core import BacktestEngine # noqa: E402
+import strategies # noqa: E402
 
 def get_available_strategies():
     """Dynamically find all Strategy subclasses in the strategies module"""
