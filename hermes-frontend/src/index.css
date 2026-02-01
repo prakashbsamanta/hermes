@@ -18,3 +18,8 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-700 rounded-full;
 }
+
+/* Hide TradingView Attribution Logo */
+#tv-attr-logo {
+  display: none !important;
+}

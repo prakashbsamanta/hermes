@@ -1,23 +1,66 @@
-import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { createChart, ColorType } from 'lightweight-charts';
 import type { IChartApi, Time } from 'lightweight-charts';
 import type { CandlePoint, IndicatorPoint, SignalPoint } from '../services/api';
+import { ChartControls } from './ChartControls';
 
 interface ChartProps {
     candles: CandlePoint[];
     indicators?: Record<string, IndicatorPoint[]>;
     signals: SignalPoint[];
+
+    // View Props (Home Screen)
+    symbol?: string;
+    onSymbolChange?: (sym: string) => void;
+    timeframe?: string;
+    onTimeframeChange?: (tf: string) => void;
+    instruments?: string[];
+
+    className?: string;
 }
 
-export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, signals }) => {
+// Helper to calculate simple SMA
+const calculateSMA = (data: CandlePoint[], period: number) => {
+    const sma = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) continue;
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+            sum += data[i - j].close;
+        }
+        sma.push({ time: data[i].time, value: sum / period });
+    }
+    return sma;
+};
+
+export const ChartComponent: React.FC<ChartProps> = ({
+    candles,
+    indicators,
+    signals,
+    symbol,
+    onSymbolChange,
+    timeframe,
+    onTimeframeChange,
+    instruments,
+    className
+}) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
+
+    const [showVolume, setShowVolume] = useState(false);
+    const [showSMA, setShowSMA] = useState(false);
+
+    // Calculate Client-Side SMA if enabled
+    const smaData = useMemo(() => {
+        if (!showSMA || !candles) return [];
+        return calculateSMA(candles, 20);
+    }, [candles, showSMA]);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
         if (!candles || candles.length === 0) return;
 
-        console.log("Initializing Candlestick Chart...");
+        console.log("Initializing Candlestick Chart (v4)...");
 
         let chart: IChartApi;
 
@@ -33,7 +76,7 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
                     horzLines: { color: '#334155' },
                 },
                 width: chartContainerRef.current.clientWidth,
-                height: 400,
+                height: chartContainerRef.current.clientHeight, // Use container height
                 timeScale: {
                     timeVisible: true,
                     secondsVisible: false,
@@ -43,7 +86,7 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
             chartRef.current = chart;
 
             // 1. Candlestick Series (Main Price)
-            const candleSeries = chart.addSeries(CandlestickSeries, {
+            const candleSeries = chart.addCandlestickSeries({
                 upColor: '#26a69a',
                 downColor: '#ef5350',
                 borderVisible: false,
@@ -61,30 +104,55 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
 
             // Sort by time
             candleData.sort((a, b) => (a.time as number) - (b.time as number));
-
             candleSeries.setData(candleData);
 
-            // 2. Indicators (Overlays)
-            // e.g. SMA, Bollinger
-            // TODO: In future, separate pane for RSI. For now, we plot EVERYTHING on main chart.
-            // If values are ~ price (like SMA), it looks good.
-            // If values are 0-100 (RSI), it will flatten the candle chart.
-            // Heuristic: Check if first value is close to price?
+            // 2. Volume Series (Client Toggle)
+            if (showVolume) {
+                const volumeSeries = chart.addHistogramSeries({
+                    color: '#26a69a',
+                    priceFormat: {
+                        type: 'volume',
+                    },
+                    priceScaleId: '', // Overlay on main chart (bottom)
+                });
 
+                // Scale volume to sit at bottom 20%
+                volumeSeries.priceScale().applyOptions({
+                    scaleMargins: {
+                        top: 0.8,
+                        bottom: 0,
+                    },
+                });
+
+                const volumeData = candles.map(c => ({
+                    time: c.time as Time,
+                    value: c.volume,
+                    color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+                }));
+                volumeSeries.setData(volumeData);
+            }
+
+            // 3. Client-Side SMA (Client Toggle)
+            if (showSMA && smaData.length > 0) {
+                const smaSeries = chart.addLineSeries({
+                    color: '#fbbf24', // Amber 400
+                    lineWidth: 2,
+                    title: 'SMA 20 (Client)',
+                    priceScaleId: 'right', // Same as candles
+                });
+                smaSeries.setData(smaData.map(d => ({ time: d.time as Time, value: d.value })));
+            }
+
+            // 4. Backtest Indicators (Server Provided)
             if (indicators) {
                 const colors = ['#2962FF', '#E91E63', '#FF9800', '#9C27B0', '#00BCD4'];
                 let cIdx = 0;
 
                 Object.entries(indicators).forEach(([name, data]) => {
-                    // Simple heuristic: If avg value < 200 and price > 1000, probably separate scale needed.
-                    // For now, let's just plot them all and see.
-                    // LightWeight Charts supports right/left axis or overlays.
-
-                    const lineSeries = chart.addSeries(LineSeries, {
+                    const lineSeries = chart.addLineSeries({
                         color: colors[cIdx % colors.length],
                         lineWidth: 2,
                         title: name,
-                        // crosshairMarkerVisible: true,
                     });
 
                     const lineData = data.map(d => ({
@@ -98,7 +166,7 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
                 });
             }
 
-            // 3. Signals (Markers)
+            // 5. Signals (Markers)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const markers: any[] = signals.map(s => ({
                 time: s.time as Time,
@@ -120,7 +188,10 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
 
             const handleResize = () => {
                 if (chartContainerRef.current) {
-                    chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+                    chart.applyOptions({
+                        width: chartContainerRef.current.clientWidth,
+                        height: chartContainerRef.current.clientHeight
+                    });
                 }
             };
 
@@ -134,9 +205,67 @@ export const ChartComponent: React.FC<ChartProps> = ({ candles, indicators, sign
         } catch (err) {
             console.error("Chart Rendering Error:", err);
         }
-    }, [candles, indicators, signals]);
+    }, [candles, indicators, signals, showVolume, showSMA, smaData]);
+
+    // Handlers
+    const handleZoomIn = () => {
+        if (!chartRef.current) return;
+        const currentRange = chartRef.current.timeScale().getVisibleLogicalRange();
+        if (!currentRange) return;
+
+        // Zoom In = Smaller Range
+        const barsToZoom = (currentRange.to - currentRange.from) * 0.2; // Zoom 20%
+        chartRef.current.timeScale().setVisibleLogicalRange({
+            from: currentRange.from + barsToZoom / 2,
+            to: currentRange.to - barsToZoom / 2
+        });
+    };
+
+    const handleZoomOut = () => {
+        if (!chartRef.current) return;
+        const currentRange = chartRef.current.timeScale().getVisibleLogicalRange();
+        if (!currentRange) return;
+
+        // Zoom Out = Larger Range
+        const barsToZoom = (currentRange.to - currentRange.from) * 0.2; // Zoom 20%
+        chartRef.current.timeScale().setVisibleLogicalRange({
+            from: currentRange.from - barsToZoom / 2,
+            to: currentRange.to + barsToZoom / 2
+        });
+    };
+
+    const handleFullscreen = () => {
+        if (chartContainerRef.current) {
+            if (!document.fullscreenElement) {
+                chartContainerRef.current.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    };
 
     return (
-        <div ref={chartContainerRef} className="w-full h-[400px]" />
+        <div className={`relative ${className || 'w-full h-full'} bg-surface`}>
+            {/* Chart Toolbar (Only show if interactive props provided) */}
+            {symbol && onSymbolChange && timeframe && onTimeframeChange && instruments && (
+                <ChartControls
+                    symbol={symbol}
+                    onSymbolChange={onSymbolChange}
+                    timeframe={timeframe}
+                    onTimeframeChange={onTimeframeChange}
+                    instruments={instruments}
+                    showVolume={showVolume}
+                    onToggleVolume={() => setShowVolume(!showVolume)}
+                    showSMA={showSMA}
+                    onToggleSMA={() => setShowSMA(!showSMA)}
+                    onZoomIn={handleZoomIn}
+                    onZoomOut={handleZoomOut}
+                    onFullscreen={handleFullscreen}
+                />
+            )}
+            <div ref={chartContainerRef} className="w-full h-full" id="tv-chart-container" />
+        </div>
     );
 };

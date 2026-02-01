@@ -7,63 +7,77 @@ import { MetricCard } from './components/MetricCard';
 import { TrendingUp, Activity, DollarSign, AlertTriangle } from 'lucide-react';
 
 function App() {
-  const [symbol, setSymbol] = useState("AARTIIND");
-  // State for raw data vs backtest results
+  // --- View State (Chart) ---
+  const [viewSymbol, setViewSymbol] = useState("AARTIIND");
+  const [viewTimeframe, setViewTimeframe] = useState("1h");
   const [marketData, setMarketData] = useState<MarketDataResponse | null>(null);
+
+  // --- Backtest State (Header Config) ---
+  const [backtestSymbol, setBacktestSymbol] = useState("AARTIIND");
+  const [backtestStrategy, setBacktestStrategy] = useState("RSIStrategy");
+
+  // --- Shared Data ---
   const [instruments, setInstruments] = useState<string[]>([]);
-  const [strategy, setStrategy] = useState("RSIStrategy");
 
   const backtestMutation = useBacktest();
 
-  const loadMarketData = async (sym: string) => {
+  // Load Market Data (for View Mode)
+  const loadMarketData = async (sym: string, tf: string) => {
     try {
-      // Clear backtest results so we show raw data only
+      // If we are loading market data explicitly, we probably want to see it,
+      // so we should clear the backtest result to "return to home".
       backtestMutation.reset();
-      const data = await api.getMarketData(sym);
+      const data = await api.getMarketData(sym, tf);
       setMarketData(data);
     } catch (err) {
       console.error("Failed to load market data", err);
     }
   };
 
-  // Fetch Instruments on Mount
+  // Initial Load
   useEffect(() => {
     api.getInstruments().then(data => {
       setInstruments(data);
       if (data.length > 0) {
-        // If default symbol is not in list, pick first available
-        if (!data.includes(symbol)) {
-          setSymbol(data[0]);
-          loadMarketData(data[0]); // Load market data for the new default
+        if (!data.includes(viewSymbol)) {
+          // Default to first available
+          const defaultSym = data[0];
+          setViewSymbol(defaultSym);
+          setBacktestSymbol(defaultSym); // Sync backtest default initially
+          loadMarketData(defaultSym, viewTimeframe);
         } else {
-          // Load default
-          loadMarketData(symbol);
+          loadMarketData(viewSymbol, viewTimeframe);
         }
       }
     }).catch(err => console.error("Failed to fetch instruments:", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When symbol changes, load pure market data.
-  // We do NOT auto-run backtest anymore per user request.
-  const handleSymbolChange = (newSymbol: string) => {
-    setSymbol(newSymbol);
-    loadMarketData(newSymbol);
+  // Handlers for Chart Interaction (Immediate Update)
+  const handleViewSymbolChange = (newSym: string) => {
+    setViewSymbol(newSym);
+    loadMarketData(newSym, viewTimeframe);
   };
 
-  const handleRun = () => {
+  const handleViewTimeframeChange = (newTf: string) => {
+    setViewTimeframe(newTf);
+    loadMarketData(viewSymbol, newTf);
+  };
+
+  // Handler for Backtest Execution
+  const handleRunBacktest = () => {
     backtestMutation.mutate({
-      symbol,
-      strategy,
+      symbol: backtestSymbol,
+      strategy: backtestStrategy,
       params: {}
     });
   };
 
-  // Determine what to show
-  // If mutation has data -> Show Backtest Results (Candles + Indicators + Signals)
-  // If mutation is idle/reset -> Show Market Data (Candles Only)
+  // Determine Active Data Source
+  // Priority: Backtest Result > Raw Market Data
+  const isBacktestMode = !!backtestMutation.data;
 
-  const activeData = backtestMutation.data
+  const activeData = isBacktestMode
     ? {
       candles: backtestMutation.data.candles,
       indicators: backtestMutation.data.indicators,
@@ -82,12 +96,7 @@ function App() {
   // Staggered Animation Variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
   const itemVariants = {
@@ -98,55 +107,64 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-white p-6 flex flex-col gap-6 overflow-hidden">
 
-      {/* Header */}
+      {/* Header: Backtest Configuration Only */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex justify-between items-center"
+        className="flex justify-between items-center bg-surface p-4 rounded-xl border border-slate-700 shadow-lg"
       >
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-          Hermes <span className="text-white text-lg font-normal opacity-50">Quantitative Engine</span>
-        </h1>
-        <div className="flex gap-4">
-          <motion.select
-            whileHover={{ scale: 1.02 }}
-            value={strategy} onChange={e => setStrategy(e.target.value)}
-            className="bg-surface border border-slate-700 rounded px-4 py-2 cursor-pointer outline-none focus:border-primary"
-          >
-            <option value="SMAStrategy">SMA Crossover</option>
-            <option value="RSIStrategy">RSI Strategy</option>
-            <option value="BollingerBandsStrategy">Bollinger Bands</option>
-            <option value="MACDStrategy">MACD</option>
-            <option value="MTFTrendFollowingStrategy">MTF Trend Following</option>
-          </motion.select>
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+            Hermes <span className="text-white text-base font-normal opacity-50">Backtest Config</span>
+          </h1>
+          <span className="text-xs text-slate-500">Configure strategy parameters below</span>
+        </div>
 
-          {/* Instrument Selector */}
-          {instruments.length > 0 ? (
+        <div className="flex gap-4 items-center">
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-500 mb-1 ml-1">Strategy</label>
             <motion.select
               whileHover={{ scale: 1.02 }}
-              value={symbol} onChange={e => handleSymbolChange(e.target.value)}
-              className="bg-surface border border-slate-700 rounded px-4 py-2 cursor-pointer outline-none focus:border-primary"
+              value={backtestStrategy} onChange={e => setBacktestStrategy(e.target.value)}
+              className="bg-background border border-slate-600 rounded px-4 py-2 cursor-pointer outline-none focus:border-primary min-w-[180px]"
             >
-              {instruments.map(inst => (
-                <option key={inst} value={inst}>{inst}</option>
-              ))}
+              <option value="SMAStrategy">SMA Crossover</option>
+              <option value="RSIStrategy">RSI Strategy</option>
+              <option value="BollingerBandsStrategy">Bollinger Bands</option>
+              <option value="MACDStrategy">MACD</option>
+              <option value="MTFTrendFollowingStrategy">MTF Trend Following</option>
             </motion.select>
-          ) : (
-            <motion.input
-              whileFocus={{ scale: 1.05 }}
-              type="text" value={symbol} onChange={e => handleSymbolChange(e.target.value)}
-              className="bg-surface border border-slate-700 rounded px-4 py-2 w-32 text-center outline-none focus:border-primary"
-              placeholder="Symbol"
-            />
-          )}
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-500 mb-1 ml-1">Backtest Symbol</label>
+            {instruments.length > 0 ? (
+              <motion.select
+                whileHover={{ scale: 1.02 }}
+                value={backtestSymbol} onChange={e => setBacktestSymbol(e.target.value)}
+                className="bg-background border border-slate-600 rounded px-4 py-2 cursor-pointer outline-none focus:border-primary min-w-[140px]"
+              >
+                {instruments.map(inst => (
+                  <option key={inst} value={inst}>{inst}</option>
+                ))}
+              </motion.select>
+            ) : (
+              <motion.input
+                whileFocus={{ scale: 1.05 }}
+                type="text" value={backtestSymbol} onChange={e => setBacktestSymbol(e.target.value)}
+                className="bg-background border border-slate-600 rounded px-4 py-2 w-32 text-center outline-none focus:border-primary"
+                placeholder="Symbol"
+              />
+            )}
+          </div>
 
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={handleRun}
+            onClick={handleRunBacktest}
             disabled={backtestMutation.isPending}
-            className="bg-primary hover:bg-blue-600 px-6 py-2 rounded font-semibold transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
+            className="mt-5 bg-primary hover:bg-blue-600 px-8 py-2 rounded font-semibold transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
           >
             {backtestMutation.isPending ? "Running..." : "Run Backtest"}
           </motion.button>
@@ -154,28 +172,40 @@ function App() {
       </motion.header>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full flex-1 min-h-0">
 
         {/* Chart Area */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="lg:col-span-3 bg-surface rounded-xl border border-slate-700 p-4 shadow-xl relative min-h-[500px]"
+          className="lg:col-span-3 bg-surface rounded-xl border border-slate-700 shadow-xl relative overflow-hidden flex flex-col"
         >
           <AnimatePresence mode='wait'>
             {activeData ? (
               <motion.div
-                key="chart"
+                key={isBacktestMode ? "backtest-chart" : "market-chart"} // Animate transition between modes
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="h-full"
+                className="flex-1 w-full h-full"
               >
                 <ChartComponent
                   candles={activeData.candles}
                   indicators={activeData.indicators}
                   signals={activeData.signals}
+
+                  // Interactive Props (Active only in Market Mode, or allowing override?)
+                  // UX Decision: Even in backtest mode, showing the controls allows user to "break out" back to view mode easily
+                  // just by changing the symbol on the chart.
+                  symbol={isBacktestMode ? backtestSymbol : viewSymbol} // Show actual displayed symbol
+                  onSymbolChange={handleViewSymbolChange} // Switching symbol resets to View Mode
+
+                  timeframe={viewTimeframe}
+                  onTimeframeChange={handleViewTimeframeChange}
+
+                  instruments={instruments}
+                  className="flex-1 w-full h-full"
                 />
               </motion.div>
             ) : (
@@ -197,9 +227,11 @@ function App() {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="lg:col-span-1 flex flex-col gap-4"
+          className="lg:col-span-1 flex flex-col gap-4 overflow-y-auto pr-2"
         >
-          <motion.h2 variants={itemVariants} className="text-xl font-bold text-slate-400">Performance Metrics</motion.h2>
+          <motion.h2 variants={itemVariants} className="text-xl font-bold text-slate-400">
+            {isBacktestMode ? "Strategy Results" : "Live Market Metrics"}
+          </motion.h2>
 
           <AnimatePresence>
             {activeData && activeData.metrics ? (
@@ -231,7 +263,9 @@ function App() {
               </>
             ) : (
               <div className="text-slate-500 text-sm italic p-4 border border-dashed border-slate-700 rounded-lg">
-                Run a backtest to see strategy performance metrics.
+                Select a strategy and run backtest to see performance metrics.
+                <br /><br />
+                Current View: <strong>{viewSymbol}</strong> ({viewTimeframe})
               </div>
             )}
           </AnimatePresence>

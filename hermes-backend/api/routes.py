@@ -56,11 +56,15 @@ async def list_instruments():
         logging.warning(f"Could not list instruments: {str(e)}")
         return []
 
-def resample_data(df: pl.DataFrame, min_points: int = 5000) -> pl.DataFrame:
-    """Downsample large datasets to hourly candles for visualization."""
-    if len(df) <= min_points:
-        return df
-        
+def resample_data(df: pl.DataFrame, interval: str = "1h") -> pl.DataFrame:
+    """Downsample datasets to specified interval for visualization."""
+    # If interval is '1m' and data is already 1 minute, no need to resample generally,
+    # unless we want to ensure alignment. But if len is huge, we might warn.
+    # For now, we trust the caller (frontend) to pick reasonable intervals or we accept it might be slow.
+    
+    # Polars requires duration strings like "1h", "15m", "1d".
+    # Validate basics?
+    
     # Define aggregation dict for basic OHLCV
     agg_dict = {
         "open": pl.col("open").first(),
@@ -82,13 +86,13 @@ def resample_data(df: pl.DataFrame, min_points: int = 5000) -> pl.DataFrame:
 
     return (
         df.sort("timestamp")
-        .group_by_dynamic("timestamp", every="1h")
+        .group_by_dynamic("timestamp", every=interval)
         .agg(**agg_dict)
         .drop_nulls()
     )
 
 @router.get("/data/{symbol}", response_model=Dict[str, Any])
-async def get_market_data(symbol: str):
+async def get_market_data(symbol: str, timeframe: str = "1h"):
     try:
         data_dir = get_data_dir()
         loader = DataLoader(data_dir=data_dir)
@@ -98,7 +102,7 @@ async def get_market_data(symbol: str):
             raise HTTPException(status_code=404, detail=f"Data not found for {symbol}")
 
         # Resample for chart
-        chart_df = resample_data(df)
+        chart_df = resample_data(df, interval=timeframe)
         
         # Convert to CandlePoint list
         candles = []
@@ -116,7 +120,8 @@ async def get_market_data(symbol: str):
             
         return {
             "symbol": symbol,
-            "candles": candles
+            "candles": candles,
+            "timeframe": timeframe
         }
     except HTTPException as he:
         raise he
@@ -161,7 +166,9 @@ async def run_backtest(request: BacktestRequest):
         metrics = engine.calculate_metrics(result_df)
         
         # 6. Optimize for Visualization (Downsampling)
-        chart_df = resample_data(result_df)
+        # Default backtest view to 1h to keep payload light for now
+        # TODO: Allow backtest timeframe selection in future
+        chart_df = resample_data(result_df, interval="1h")
 
         # Identify Indicator Columns (Float columns that are not OHLCV or Signal/Pos)
         exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "equity", "trade_action"}

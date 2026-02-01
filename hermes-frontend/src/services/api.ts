@@ -49,6 +49,7 @@ export interface BacktestResponse {
 export interface MarketDataResponse {
     symbol: string;
     candles: CandlePoint[];
+    timeframe: string;
 }
 
 export const api = {
@@ -60,8 +61,10 @@ export const api = {
         const response = await axios.get<string[]>(`${API_URL}/instruments`);
         return response.data;
     },
-    getMarketData: async (symbol: string): Promise<MarketDataResponse> => {
-        const response = await axios.get<MarketDataResponse>(`${API_URL}/data/${symbol}`);
+    getMarketData: async (symbol: string, timeframe: string = "1h"): Promise<MarketDataResponse> => {
+        const response = await axios.get<MarketDataResponse>(`${API_URL}/data/${symbol}`, {
+            params: { timeframe }
+        });
         return response.data;
     }
 };
