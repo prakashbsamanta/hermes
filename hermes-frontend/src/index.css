@@ -3,23 +3,92 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-background text-white font-sans antialiased;
+  :root {
+    /* Light Mode (User's #F6F7F9 and #FFFFFF) */
+    --background: 220 14% 97%;
+    /* #F6F7F9 */
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    /* #FFFFFF */
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* Primary: #7C3AED */
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    /* Accent: #E2E8F0 */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark Mode (User's #0B0E11 and #15191E) */
+    --background: 210 21% 5%;
+    /* #0B0E11 */
+    --foreground: 210 40% 98%;
+
+    --card: 213 18% 10%;
+    /* #15191E */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 213 18% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary: #9D7BFF */
+    --primary: 256 100% 74%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    /* Accent: #2B3139 */
+    --accent: 213 14% 19%;
+    /* #2B3139 approx */
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 256 100% 74%;
   }
 }
 
-/* Custom Scrollbar for premium feel */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-slate-700 rounded-full;
-}
+@layer base {
+  * {
+    @apply border-border;
+  }
 
-/* Hide TradingView Attribution Logo */
-#tv-attr-logo {
-  display: none !important;
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Hide TradingView Copy - Robust Selector */
+  #tv-chart-container a[href*="tradingview.com"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 }

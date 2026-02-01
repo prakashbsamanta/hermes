@@ -1,6 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, BarChart2, Activity } from 'lucide-react';
+import { Minus, Plus, Maximize, Check, ChevronsUpDown, Settings2 } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface ChartControlsProps {
     symbol: string;
@@ -31,89 +37,127 @@ export const ChartControls: React.FC<ChartControlsProps> = ({
     onZoomOut,
     onFullscreen
 }) => {
+    const [openSymbol, setOpenSymbol] = useState(false);
+    const [openIndicators, setOpenIndicators] = useState(false);
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute top-4 left-4 z-20 flex flex-wrap gap-2 items-center bg-slate-900/80 backdrop-blur-md p-2 rounded-lg border border-slate-700 shadow-xl"
+            className="absolute top-4 left-4 z-50 flex flex-wrap gap-2 items-center bg-background/90 backdrop-blur-md p-1.5 rounded-lg border border-border shadow-md"
         >
-            {/* Symbol Selector */}
-            <div className="relative group">
-                <select
-                    value={symbol}
-                    onChange={(e) => onSymbolChange(e.target.value)}
-                    className="bg-transparent text-white font-bold outline-none cursor-pointer appearance-none pr-6 pl-2 py-1 hover:text-primary transition"
-                >
-                    {instruments.map(inst => (
-                        <option key={inst} value={inst} className="bg-slate-800 text-white">
-                            {inst}
-                        </option>
+            {/* Symbol Searchable Combobox */}
+            <Popover open={openSymbol} onOpenChange={setOpenSymbol}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        role="combobox"
+                        aria-expanded={openSymbol}
+                        className="w-[140px] justify-between font-bold hover:bg-accent/50"
+                    >
+                        {symbol || "Select symbol..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                    <Command>
+                        <CommandInput placeholder="Search symbol..." />
+                        <CommandList>
+                            <CommandEmpty>No symbol found.</CommandEmpty>
+                            <CommandGroup>
+                                {instruments.map((inst) => (
+                                    <CommandItem
+                                        key={inst}
+                                        value={inst}
+                                        onSelect={(currentValue: string) => {
+                                            onSymbolChange(currentValue);
+                                            setOpenSymbol(false);
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                symbol === inst ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        {inst}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+
+            <Separator orientation="vertical" className="h-4" />
+
+            {/* Timeframe Selector (Standard Select is fine here, typically short list) */}
+            <Select value={timeframe} onValueChange={onTimeframeChange}>
+                <SelectTrigger className="h-8 w-[80px] bg-transparent border-transparent focus:ring-0 text-muted-foreground hover:text-foreground hover:bg-accent/50">
+                    <SelectValue placeholder="Interval" />
+                </SelectTrigger>
+                <SelectContent>
+                    {['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'].map(tf => (
+                        <SelectItem key={tf} value={tf}>{tf}</SelectItem>
                     ))}
-                </select>
-                {/* Custom arrow if needed, but standard select is fine for MVP */}
-            </div>
+                </SelectContent>
+            </Select>
 
-            <div className="w-px h-6 bg-slate-700 mx-1" />
+            <Separator orientation="vertical" className="h-4" />
 
-            {/* Timeframe Selector */}
-            <select
-                value={timeframe}
-                onChange={(e) => onTimeframeChange(e.target.value)}
-                className="bg-transparent text-sm text-slate-300 outline-none cursor-pointer appearance-none px-2 py-1 hover:text-white transition"
-            >
-                {['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'].map(tf => (
-                    <option key={tf} value={tf} className="bg-slate-800 text-slate-300">
-                        {tf}
-                    </option>
-                ))}
-            </select>
+            {/* Indicators Searchable Dropdown */}
+            <Popover open={openIndicators} onOpenChange={setOpenIndicators}>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
+                        <Settings2 size={16} />
+                        <span className="text-xs">Indicators</span>
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                        <CommandInput placeholder="Search indicators..." />
+                        <CommandList>
+                            <CommandEmpty>No indicator found.</CommandEmpty>
+                            <CommandGroup heading="Overlays">
+                                <CommandItem onSelect={onToggleSMA}>
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            showSMA ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    SMA (20)
+                                </CommandItem>
+                            </CommandGroup>
+                            <CommandGroup heading="Oscillators/Volume">
+                                <CommandItem onSelect={onToggleVolume}>
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            showVolume ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    Volume
+                                </CommandItem>
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
 
-            <div className="w-px h-6 bg-slate-700 mx-1" />
-
-            {/* Indicators */}
-            <button
-                onClick={onToggleVolume}
-                className={`p-1.5 rounded transition ${showVolume ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                title="Toggle Volume"
-            >
-                <BarChart2 size={16} />
-            </button>
-            <button
-                onClick={onToggleSMA}
-                className={`p-1.5 rounded transition ${showSMA ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                title="Toggle SMA 20"
-            >
-                <Activity size={16} />
-            </button>
-
-            <div className="w-px h-6 bg-slate-700 mx-1" />
+            <Separator orientation="vertical" className="h-4" />
 
             {/* Zoom & Fullscreen */}
-            <div className="flex bg-slate-800/50 rounded overflow-hidden border border-slate-700">
-                <button
-                    onClick={onZoomOut}
-                    className="p-1.5 hover:bg-white/10 text-slate-300 hover:text-white transition"
-                    title="Zoom Out"
-                >
-                    -
-                </button>
-                <button
-                    onClick={onZoomIn}
-                    className="p-1.5 hover:bg-white/10 text-slate-300 hover:text-white transition border-l border-slate-700"
-                    title="Zoom In"
-                >
-                    +
-                </button>
+            <div className="flex items-center gap-0.5">
+                <Button variant="ghost" size="icon" onClick={onZoomOut} className="h-8 w-8 text-muted-foreground" title="Zoom Out">
+                    <Minus size={16} />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onZoomIn} className="h-8 w-8 text-muted-foreground" title="Zoom In">
+                    <Plus size={16} />
+                </Button>
+                <Separator orientation="vertical" className="h-4 mx-1" />
+                <Button variant="ghost" size="icon" onClick={onFullscreen} className="h-8 w-8 text-muted-foreground" title="Fullscreen">
+                    <Maximize size={16} />
+                </Button>
             </div>
-
-            <button
-                onClick={onFullscreen}
-                className="p-1.5 rounded transition text-slate-400 hover:text-white hover:bg-white/5 ml-1"
-                title="Fullscreen"
-            >
-                <Settings size={16} /> {/* Using Settings icon for now as a placeholder or could use Maximize if available from lucide-react */}
-            </button>
-
         </motion.div>
     );
 };

@@ -44,11 +44,22 @@ export const ChartComponent: React.FC<ChartProps> = ({
     instruments,
     className
 }) => {
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
 
     const [showVolume, setShowVolume] = useState(false);
     const [showSMA, setShowSMA] = useState(false);
+
+    // Tooltip State
+    const [tooltipData, setTooltipData] = useState<{
+        visible: boolean;
+        x: number;
+        y: number;
+        type: 'buy' | 'sell';
+        price: number;
+        time: number;
+    } | null>(null);
 
     // Calculate Client-Side SMA if enabled
     const smaData = useMemo(() => {
@@ -80,6 +91,10 @@ export const ChartComponent: React.FC<ChartProps> = ({
                 timeScale: {
                     timeVisible: true,
                     secondsVisible: false,
+                },
+                crosshair: {
+                    // We need crosshair to detect hover pos
+                    mode: 1 // Magnet
                 }
             });
 
@@ -167,13 +182,14 @@ export const ChartComponent: React.FC<ChartProps> = ({
             }
 
             // 5. Signals (Markers)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            //eslint-disable-next-line @typescript-eslint/no-explicit-any
             const markers: any[] = signals.map(s => ({
                 time: s.time as Time,
                 position: s.type === 'buy' ? 'belowBar' : 'aboveBar',
                 color: s.type === 'buy' ? '#10b981' : '#ef4444',
                 shape: s.type === 'buy' ? 'arrowUp' : 'arrowDown',
-                text: s.type.toUpperCase(),
+                // Text removed as requested
+                // text: s.type.toUpperCase(), 
                 size: 1,
             }));
 
@@ -183,6 +199,48 @@ export const ChartComponent: React.FC<ChartProps> = ({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (candleSeries as any).setMarkers(markers);
             }
+
+            // 6. Tooltip Logic (Crosshair Subscription)
+            chart.subscribeCrosshairMove(param => {
+                if (
+                    !param.time ||
+                    param.point === undefined ||
+                    !param.point.x ||
+                    !param.point.y ||
+                    param.point.x < 0 ||
+                    param.point.y < 0
+                ) {
+                    setTooltipData(null);
+                    return;
+                }
+
+                const time = param.time as number;
+                // Find visible signal at this time
+                // Since markers are typically exactly on the candle time
+                const signalAtTime = signals.find(s => s.time === time);
+
+                if (signalAtTime) {
+                    // Calculate tooltip position near the marker
+                    // Markers are above/below bars.
+                    // We can use param.point (cursor) or calculate Y position of the bar.
+                    // Using cursor X and fixed Y offset from cursor might be easiest, 
+                    // or better: anchor to the series price if possible.
+                    // For simplicity, let's float near the cursor but ensure visibility.
+
+                    const price = signalAtTime.price || 0; // Fallback if price missing
+
+                    setTooltipData({
+                        visible: true,
+                        x: param.point.x,
+                        y: param.point.y,
+                        type: signalAtTime.type,
+                        price: price,
+                        time: signalAtTime.time
+                    });
+                } else {
+                    setTooltipData(null);
+                }
+            });
 
             chart.timeScale().fitContent();
 
@@ -235,9 +293,9 @@ export const ChartComponent: React.FC<ChartProps> = ({
     };
 
     const handleFullscreen = () => {
-        if (chartContainerRef.current) {
+        if (wrapperRef.current) {
             if (!document.fullscreenElement) {
-                chartContainerRef.current.requestFullscreen().catch(err => {
+                wrapperRef.current.requestFullscreen().catch(err => {
                     console.error(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
                 });
             } else {
@@ -247,7 +305,7 @@ export const ChartComponent: React.FC<ChartProps> = ({
     };
 
     return (
-        <div className={`relative ${className || 'w-full h-full'} bg-surface`}>
+        <div ref={wrapperRef} className={`relative ${className || 'w-full h-full'} bg-surface`}>
             {/* Chart Toolbar (Only show if interactive props provided) */}
             {symbol && onSymbolChange && timeframe && onTimeframeChange && instruments && (
                 <ChartControls
@@ -266,6 +324,28 @@ export const ChartComponent: React.FC<ChartProps> = ({
                 />
             )}
             <div ref={chartContainerRef} className="w-full h-full" id="tv-chart-container" />
+
+            {/* Tooltip */}
+            {tooltipData && tooltipData.visible && (
+                <div
+                    className="absolute z-50 p-2 rounded shadow-lg border text-xs font-mono pointer-events-none transition-opacity duration-75"
+                    style={{
+                        left: tooltipData.x + 10, // Offset from mouse
+                        top: tooltipData.y + 10,
+                        backgroundColor: 'var(--card)', // Use CSS variable
+                        borderColor: tooltipData.type === 'buy' ? '#10b981' : '#ef4444',
+                        color: 'var(--foreground)'
+                    }}
+                >
+                    <div className="font-bold uppercase mb-1" style={{ color: tooltipData.type === 'buy' ? '#10b981' : '#ef4444' }}>
+                        {tooltipData.type} SIGNAL
+                    </div>
+                    <div>Price: {tooltipData.price.toFixed(2)}</div>
+                    <div className="text-muted-foreground text-[10px]">
+                        {new Date(tooltipData.time * 1000).toLocaleString()}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
