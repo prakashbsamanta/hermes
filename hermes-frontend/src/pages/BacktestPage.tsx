@@ -6,12 +6,15 @@ import { ChartComponent } from "@/components/ChartComponent";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { StrategyConfigPanel } from "@/components/backtest/StrategyConfigPanel";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, Activity, DollarSign, AlertTriangle } from "lucide-react";
 
 export function BacktestPage() {
     const [symbol, setSymbol] = useState("AARTIIND");
     const [strategy, setStrategy] = useState("RSIStrategy");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [strategyParams, setStrategyParams] = useState<Record<string, any>>({});
     const [instruments, setInstruments] = useState<string[]>([]);
 
     const backtestMutation = useBacktest();
@@ -30,7 +33,7 @@ export function BacktestPage() {
         backtestMutation.mutate({
             symbol: symbol,
             strategy: strategy,
-            params: {}
+            params: strategyParams
         });
     };
 
@@ -66,9 +69,18 @@ export function BacktestPage() {
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
-                    className="flex flex-col gap-4"
+                    className="flex flex-col gap-4 h-full"
                 >
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    {/* Strategy Configuration Panel */}
+                    <div className="flex-1 min-h-0 bg-background rounded-lg border border-border shadow-sm overflow-hidden">
+                        <StrategyConfigPanel
+                            strategyName={strategy}
+                            currentParams={strategyParams}
+                            onParamsChange={setStrategyParams}
+                        />
+                    </div>
+
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-2">
                         Backtest Results
                     </h2>
 

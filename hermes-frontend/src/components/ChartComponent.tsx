@@ -330,11 +330,12 @@ export const ChartComponent: React.FC<ChartProps> = ({
                 <div
                     className="absolute z-50 p-2 rounded shadow-lg border text-xs font-mono pointer-events-none transition-opacity duration-75"
                     style={{
-                        left: tooltipData.x + 10, // Offset from mouse
-                        top: tooltipData.y + 10,
-                        backgroundColor: 'var(--card)', // Use CSS variable
+                        left: tooltipData.x + 15, // Slightly further offset
+                        top: tooltipData.y + 15,
+                        backgroundColor: 'rgba(30, 41, 59, 0.9)', // Slate 900 with high opacity (no longer transparent var)
+                        backdropFilter: 'blur(8px)', // Add glassmorphism blur
                         borderColor: tooltipData.type === 'buy' ? '#10b981' : '#ef4444',
-                        color: 'var(--foreground)'
+                        color: '#f8fafc' // Slate 50 (Foreground)
                     }}
                 >
                     <div className="font-bold uppercase mb-1" style={{ color: tooltipData.type === 'buy' ? '#10b981' : '#ef4444' }}>
