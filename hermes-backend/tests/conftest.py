@@ -3,17 +3,26 @@ import polars as pl
 
 @pytest.fixture
 def sample_ohlcv_df():
+    # Generate 200 rows of minute data
+    import numpy as np
+    from datetime import datetime, timedelta
+    
+    base_time = datetime(2023, 1, 1, 10, 0, 0)
+    timestamps = [base_time + timedelta(minutes=i) for i in range(200)]
+    
+    # Random walk for close
+    np.random.seed(42)
+    close = np.cumprod(1 + np.random.normal(0, 0.001, 200)) * 100
+    
     return pl.DataFrame({
-        "timestamp": [1, 2, 3, 4, 5],
-        "open": [100, 102, 101, 103, 104],
-        "high": [105, 106, 104, 108, 110],
-        "low": [99, 101, 100, 102, 103],
-        "close": [102, 104, 103, 107, 109],
-        "volume": [1000, 1200, 1100, 1500, 2000],
-        "symbol": ["TEST"] * 5
-    }).with_columns(
-        pl.col("timestamp").cast(pl.Datetime)
-    )
+        "timestamp": timestamps,
+        "open": close, # Simple approximation
+        "high": close * 1.001,
+        "low": close * 0.999,
+        "close": close,
+        "volume": [1000] * 200,
+        "symbol": ["TEST"] * 200
+    })
 
 @pytest.fixture
 def temp_data_dir(tmp_path, sample_ohlcv_df):

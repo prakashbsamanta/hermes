@@ -16,6 +16,13 @@ export function BacktestPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [strategyParams, setStrategyParams] = useState<Record<string, any>>({});
     const [instruments, setInstruments] = useState<string[]>([]);
+    const [mode, setMode] = useState<"vector" | "event">("vector");
+
+    // Phase 5 State
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
+    const [slippage, setSlippage] = useState<number>(0.0);
+    const [commission, setCommission] = useState<number>(0.0);
 
     const backtestMutation = useBacktest();
 
@@ -33,7 +40,12 @@ export function BacktestPage() {
         backtestMutation.mutate({
             symbol: symbol,
             strategy: strategy,
-            params: strategyParams
+            params: strategyParams,
+            mode: mode,
+            start_date: startDate || undefined,
+            end_date: endDate || undefined,
+            slippage: slippage,
+            commission: commission
         });
     };
 
@@ -62,6 +74,16 @@ export function BacktestPage() {
                     onRunBacktest={handleRunBacktest}
                     isRunning={backtestMutation.isPending}
                     strategies={["SMAStrategy", "RSIStrategy", "BollingerBandsStrategy", "MACDStrategy", "MTFTrendFollowingStrategy"]}
+                    mode={mode}
+                    onModeChange={setMode}
+                    start_date={startDate}
+                    setStartDate={setStartDate}
+                    end_date={endDate}
+                    setEndDate={setEndDate}
+                    slippage={slippage}
+                    setSlippage={setSlippage}
+                    commission={commission}
+                    setCommission={setCommission}
                 />
             }
             sidebar={

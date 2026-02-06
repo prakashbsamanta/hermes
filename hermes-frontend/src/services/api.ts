@@ -7,6 +7,7 @@ export interface BacktestRequest {
     strategy: string;
     params: Record<string, unknown>;
     initial_cash?: number;
+    mode?: 'vector' | 'event';
 }
 
 export interface ChartPoint {

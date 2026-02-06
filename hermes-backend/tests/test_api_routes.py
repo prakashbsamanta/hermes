@@ -10,7 +10,7 @@ def test_health_check():
     assert response.json() == {"status": "Hermes API is running"}
 
 def test_backtest_rsi(temp_data_dir):
-    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
         payload = {
             "symbol": "TEST_SYM",
             "strategy": "RSIStrategy",
@@ -26,7 +26,7 @@ def test_backtest_rsi(temp_data_dir):
         assert data["symbol"] == "TEST_SYM"
 
 def test_backtest_invalid_strategy(temp_data_dir):
-    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
         payload = {
             "symbol": "TEST_SYM",
             "strategy": "InvalidStrategy",
@@ -48,13 +48,13 @@ def test_backtest_missing_params():
     assert response.status_code == 422 
 
 def test_get_instruments(temp_data_dir):
-    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
         response = client.get("/instruments")
         assert response.status_code == 200
         assert "TEST_SYM" in response.json()
 
 def test_get_market_data(temp_data_dir):
-    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
         response = client.get("/data/TEST_SYM")
         assert response.status_code == 200
         data = response.json()
@@ -63,6 +63,21 @@ def test_get_market_data(temp_data_dir):
         assert "open" in data["candles"][0]
 
 def test_get_market_data_not_found(temp_data_dir):
-    with patch("api.routes.get_data_dir", return_value=temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
         response = client.get("/data/NON_EXISTENT")
         assert response.status_code == 404
+
+def test_backtest_rsi_event_mode(temp_data_dir):
+    with patch("api.routes.market_data_service.get_data_dir", return_value=temp_data_dir):
+        payload = {
+            "symbol": "TEST_SYM",
+            "strategy": "RSIStrategy",
+            "params": {"period": 14},
+            "mode": "event"
+        }
+        response = client.post("/backtest", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["metrics"]["Status"] == "Event Backtest Completed"
+        assert len(data["equity_curve"]) > 0
+        assert "signals" in data

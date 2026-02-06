@@ -31,13 +31,18 @@ class DataLoader:
                 logging.warning(f"Data for {symbol} not found at {file_path}")
                 continue
             
-            # Lazy Scan for efficiency
+            # Lazy Scan
             lazy_df = pl.scan_parquet(file_path)
+            
+            # NORMALIZATION: Ensure timestamp is Naive (Wall Clock)
+            # This handles UTC-aware parquet files by dropping timezone info
+            # matching the naive datetime objects from user input.
+            lazy_df = lazy_df.with_columns(
+                pl.col("timestamp").dt.replace_time_zone(None)
+            )
             
             # Filter by Date
             if start_date:
-                # Assuming timestamp is datetime in parquet
-                # We cast string input to datetime literals for comparison
                 s_dt = datetime.strptime(start_date, "%Y-%m-%d")
                 lazy_df = lazy_df.filter(pl.col("timestamp") >= s_dt)
             

@@ -6,6 +6,11 @@ class BacktestRequest(BaseModel):
     strategy: str  # e.g. "SMACrossover"
     params: Dict[str, Any] = {}
     initial_cash: float = 100000.0
+    mode: str = "vector" # "vector" | "event"
+    slippage: float = 0.0 # Percent (0.01 = 1%)
+    commission: float = 0.0 # Per unit (dollar)
+    start_date: str | None = None # "YYYY-MM-DD"
+    end_date: str | None = None # "YYYY-MM-DD"
 
 class ChartPoint(BaseModel):
     time: int # Unix timestamp (seconds) or formatted string

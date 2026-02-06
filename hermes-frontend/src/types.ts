@@ -3,6 +3,11 @@ export interface BacktestRequest {
     strategy: string;
     params: Record<string, unknown>;
     initial_cash?: number;
+    mode?: 'vector' | 'event';
+    slippage?: number;
+    commission?: number;
+    start_date?: string;
+    end_date?: string;
 }
 
 export interface ChartPoint {
