@@ -33,7 +33,7 @@ async def get_market_data(symbol: str, timeframe: str = "1h"):
             "candles": candles,
             "timeframe": timeframe
         }
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logging.error(f"Failed to fetch data for {symbol}: {str(e)}", exc_info=True)

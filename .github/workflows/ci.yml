@@ -2,74 +2,84 @@ name: Hermes CI
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  # ==========================================
-  # 1. BACKEND INTEGRITY
-  # ==========================================
   backend-checks:
+    name: Backend Quality Gate
     runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
-
+        python-version: '3.12'
+        
     - name: Install Dependencies
-      working-directory: hermes-backend
+      working-directory: ./hermes-backend
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        # Ensure dev dependencies (pytest, mypy, ruff, httpx) are installed
-        # In a real setup, these should be in requirements.txt or requirements-dev.txt
-        # We manually ensure they are present here just in case requirements.txt lags
-        pip install pytest pytest-cov ruff mypy httpx types-requests types-ujson
+        pip install ruff mypy bandit pip-audit pytest pytest-cov types-requests
+        
+    - name: Run Ruff (Lint)
+      working-directory: ./hermes-backend
+      run: ruff check .
+      
+    - name: Run Mypy (Types)
+      working-directory: ./hermes-backend
+      run: mypy .
+      
+    - name: Run Bandit (Security)
+      working-directory: ./hermes-backend
+      run: bandit -r . --exclude ./venv,./tests -ll
+      
+    - name: Run Pip-Audit (Dependencies)
+      working-directory: ./hermes-backend
+      run: pip-audit
+      
+    - name: Run Tests & Coverage
+      working-directory: ./hermes-backend
+      run: pytest --cov=. --cov-fail-under=90
 
-    - name: Lint with Ruff
-      working-directory: hermes-backend
-      run: |
-        # Strict linting, fail on error
-        ruff check .
-
-    - name: Type Check with Mypy
-      working-directory: hermes-backend
-      run: |
-        # Strict type checking
-        mypy .
-
-    - name: Run Tests & Coverage (>90%)
-      working-directory: hermes-backend
-      run: |
-        python -m pytest --cov=. --cov-report=term-missing --cov-fail-under=90
-
-  # ==========================================
-  # 2. FRONTEND INTEGRITY
-  # ==========================================
   frontend-checks:
+    name: Frontend Quality Gate
     runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: hermes-frontend/package-lock.json
-
+        cache-dependency-path: './hermes-frontend/package-lock.json'
+        
     - name: Install Dependencies
-      working-directory: hermes-frontend
+      working-directory: ./hermes-frontend
       run: npm ci
-
-    - name: Lint (ESLint)
-      working-directory: hermes-frontend
+      
+    - name: Run ESLint
+      working-directory: ./hermes-frontend
       run: npm run lint
+      
+    - name: Check Formatting (Prettier)
+      working-directory: ./hermes-frontend
+      run: npm run format:check
+      
+    - name: Type Check (TSC)
+      working-directory: ./hermes-frontend
+      run: npm run type-check
 
-    - name: Build Verification (TSC + Vite)
-      working-directory: hermes-frontend
-      run: npm run build
+    - name: Security Audit
+      working-directory: ./hermes-frontend
+      run: npm audit --audit-level=high
+      
+    - name: Run Tests & Coverage
+      working-directory: ./hermes-frontend
+      run: npm run test:coverage

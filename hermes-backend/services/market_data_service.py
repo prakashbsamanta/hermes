@@ -6,7 +6,7 @@ from engine.loader import DataLoader
 import logging
 
 class MarketDataService:
-    def __init__(self, data_sources: List[str] = None):
+    def __init__(self, data_sources: List[str] | None = None):
         # Setup Data Directory
         # We try to be robust finding the data dir.
         current_dir = os.path.dirname(os.path.abspath(__file__))

@@ -35,13 +35,16 @@ class MetricsService:
         
         sharpe = 0.0
         if len(returns) > 0:
-            mean_ret = returns.mean()
-            std_dev = returns.std()
+            # Polars mean() returns a float or None for Series
+            raw_mean = returns.mean()
+            raw_std = returns.std()
             
-            # Annualize (assuming minute data like in core.py)
-            # 6.5 hours * 60 minutes * 252 days = 98280 bars/year approximately
-            if mean_ret is not None and std_dev is not None and std_dev != 0:
-                sharpe = float((mean_ret / std_dev) * np.sqrt(252 * 375))
+            mean_ret = float(raw_mean) if raw_mean is not None else 0.0 # type: ignore
+            std_dev = float(raw_std) if raw_std is not None else 0.0 # type: ignore
+            
+            # Annualize
+            if raw_mean is not None and raw_std is not None and std_dev != 0:
+                sharpe = (mean_ret / std_dev) * np.sqrt(252 * 375)
 
         return {
             "Total Return": f"{total_return:.2%}",
