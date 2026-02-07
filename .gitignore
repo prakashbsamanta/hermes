@@ -12,6 +12,8 @@ venv/
 .coverage
 coverage.xml
 htmlcov/
+coverage/
+hermes-frontend/coverage/
 # Data and Logs (Do not commit large datasets)
 hermes-backend/data/
 hermes-backend/logs/
