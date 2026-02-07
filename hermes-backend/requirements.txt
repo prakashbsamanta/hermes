@@ -12,3 +12,4 @@ mypy
 types-requests
 pytest
 pytest-cov
+httpx
