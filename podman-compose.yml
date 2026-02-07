@@ -1,0 +1,91 @@
+# Podman Compose configuration for Hermes
+# Usage: podman-compose up -d
+
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: hermes-postgres
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_secret
+      POSTGRES_DB: hermes
+    ports:
+      - "5432:5432"
+    volumes:
+      - hermes-postgres-data:/var/lib/postgresql/data
+    networks:
+      - hermes-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes -d hermes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: hermes-backend/Containerfile
+    container_name: hermes-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount data directory as read-only
+      - ./hermes-backend/data:/app/data:ro
+    environment:
+      - HERMES_STORAGE_PROVIDER=local
+      - HERMES_DATA_DIR=/app/data/minute
+      - HERMES_CACHE_ENABLED=true
+      - HERMES_CACHE_MAX_SIZE_MB=512
+      - HERMES_DATABASE_URL=postgresql://hermes:hermes_secret@postgres:5432/hermes
+      - HERMES_REGISTRY_ENABLED=true
+    networks:
+      - hermes-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Frontend UI
+  frontend:
+    build:
+      context: ./hermes-frontend
+      dockerfile: Containerfile
+    container_name: hermes-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    networks:
+      - hermes-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  hermes-network:
+    driver: bridge
+
+volumes:
+  hermes-postgres-data:
+    driver: local
+
+# Future additions:
+# 
+# redis:
+#   image: redis:7-alpine
+#   container_name: hermes-redis
+#   ports:
+#     - "6379:6379"
+#   networks:
+#     - hermes-network
+#   restart: unless-stopped

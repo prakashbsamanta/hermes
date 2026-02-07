@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
 .env
+*.egg-info/
 
 # Testing & Linting
 .pytest_cache/
@@ -14,6 +16,7 @@ coverage.xml
 htmlcov/
 coverage/
 hermes-frontend/coverage/
+
 # Data and Logs (Do not commit large datasets)
 hermes-backend/data/
 hermes-backend/logs/
@@ -30,3 +33,8 @@ dist/
 .DS_Store
 .vite/
 hermes-frontend/.vite/
+
+# hermes-data package
+hermes-data/.venv/
+hermes-data/dist/
+hermes-data/*.egg-info/

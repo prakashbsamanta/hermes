@@ -13,3 +13,4 @@ types-requests
 pytest
 pytest-cov
 httpx
+-e ../hermes-data

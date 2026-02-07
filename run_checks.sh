@@ -3,7 +3,7 @@
 # ==========================================
 # 🛡️ HERMES QUALITY GATE (The Guardian)
 # ==========================================
-# 1. Runs ALL checks (Backend + Frontend).
+# 1. Runs ALL checks (Backend + Data Layer + Frontend).
 # 2. Continues on failure (collects errors).
 # 3. Reports detailed summary at the end.
 # 4. Exit Code: 0 if ALL pass, 1 if ANY fail.
@@ -80,7 +80,41 @@ if [ $? -eq 0 ]; then log_success; else log_failure "Backend: Tests or Coverage 
 cd ..
 
 # ==========================================
-# 2. FRONTEND CHECKS
+# 2. HERMES-DATA CHECKS
+# ==========================================
+log_header "HERMES-DATA (Python Package)"
+cd hermes-data || exit 1
+
+if [ -f ".venv/bin/activate" ]; then
+    . .venv/bin/activate
+else
+    log_failure "hermes-data: Virtual Environment Missing"
+fi
+
+# A. LINTING
+log_step "Running Linter (Ruff - Style & Quality)"
+ruff check .
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Linting (Ruff)"; fi
+
+# B. TYPE CHECKING (Optional - may not have mypy configured)
+log_step "Running Type Checker (Mypy - Static Analysis)"
+mypy src/hermes_data --ignore-missing-imports 2>/dev/null
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Type Checking (Mypy)"; fi
+
+# C. SECURITY SCAN
+log_step "Running Security Scan (Bandit - Vulnerabilities)"
+bandit -r src --exclude ./tests -ll -q
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Security Scan (Bandit)"; fi
+
+# D. TESTS & COVERAGE
+log_step "Running Tests & Coverage (Threshold: 90%)"
+pytest tests/ --cov=src/hermes_data --cov-fail-under=90 --cov-report=term-missing
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Tests or Coverage (<90%)"; fi
+
+cd ..
+
+# ==========================================
+# 3. FRONTEND CHECKS
 # ==========================================
 log_header "HERMES FRONTEND (TypeScript/React)"
 cd hermes-frontend || exit 1
@@ -113,7 +147,7 @@ if [ $? -eq 0 ]; then log_success; else log_failure "Frontend: Tests or Coverage
 cd ..
 
 # ==========================================
-# 3. REPORT CARD
+# 4. REPORT CARD
 # ==========================================
 end_time=$(date +%s)
 duration=$((end_time - start_time))

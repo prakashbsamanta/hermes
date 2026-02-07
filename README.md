@@ -5,6 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-Active-success)
 ![Python](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Polars-blue)
 ![React](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-cyan)
+![Data](https://img.shields.io/badge/Data-PostgreSQL%20%7C%20Parquet-orange)
 
 **Hermes** is a high-performance, vectorized algorithmic trading engine designed for the Indian Stock Market. It combines the raw speed of **Rust-based Polars** for backtesting with a premium **React + Lightweight Charts** dashboard for visualization.
 
@@ -17,9 +18,10 @@
 - **⚡ Vectorized Engine**: Backtest years of minute-level data in milliseconds using `Polars`.
 - **📊 Interactive Dashboard**: Professional-grade charts with Zoom/Pan, powered by TradingView's `Lightweight Charts`.
 - **🛡️ Robust Data Guard**: Automatically filters corrupt/zero-price data to ensure test authenticity.
+- **💾 Separated Data Layer**: Pluggable storage with caching and PostgreSQL registry.
 - **🧠 Advanced Strategies**:
     - **MACD** (Moving Average Convergence Divergence) /w Signal Latching.
-    - **Boliinger Bands** (Mean Reversion).
+    - **Bollinger Bands** (Mean Reversion).
     - **RSI** (Momentum).
     - **Multi-Timeframe (MTF)**: Trade Minute charts based on Daily Trends.
 
@@ -28,66 +30,202 @@
 ## 🛠️ Architecture
 
 ```mermaid
-graph LR
-    A[Data Source (Parquet)] --> B(Polars Loader);
-    B --> C{Backtest Engine};
-    D[Strategies] --> C;
-    C --> E[FastAPI Server];
-    E --> F[React Dashboard];
-    F --> G[End User];
+graph TB
+    subgraph Frontend
+        A[React Dashboard]
+    end
+    
+    subgraph Backend
+        B[FastAPI Server]
+        C[MarketDataService]
+        D[BacktestService]
+    end
+    
+    subgraph hermes-data
+        E[DataService]
+        F[LocalFileProvider]
+        G[MemoryCache]
+        H[RegistryService]
+    end
+    
+    subgraph Storage
+        I[(PostgreSQL)]
+        J[(Parquet Files)]
+    end
+    
+    A --> B
+    B --> C --> E
+    B --> D --> E
+    E --> F --> J
+    E --> G
+    E --> H --> I
 ```
 
 ---
 
-## 🏁 Get Started
+## 🏁 Getting Started
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+
 
-### 1. Clone & Setup Backend
+- **Python 3.11+**
+- **Node.js 18+**
+- **Podman** (or Docker) for containers
+- **PostgreSQL 16** (can use containerized version)
+
+### Project Structure
+
+```
+hermes/
+├── hermes-backend/     # FastAPI backend
+├── hermes-frontend/    # React dashboard
+├── hermes-data/        # Separated data layer package
+├── podman-compose.yml  # Container orchestration
+└── docs/               # Documentation
+```
+
+---
+
+## 🐳 Option 1: Run with Containers (Recommended)
+
+The easiest way to run the full stack is with Podman (or Docker Compose).
+
+### Step 1: Start PostgreSQL
+
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/hermes.git
-cd hermes
+# Start PostgreSQL container
+podman-compose up -d postgres
 
-# Create Virtual Environment
-python3 -m venv hermes-backend/venv
-source hermes-backend/venv/bin/activate
+# Wait for it to be healthy
+podman-compose ps
+```
 
-# Install Dependencies
+### Step 2: Start All Services
+
+```bash
+# Start everything (postgres, backend, frontend)
+podman-compose up -d
+
+# Check status
+podman-compose ps
+```
+
+### Step 3: Access the Application
+
+- **Dashboard**: http://localhost:5173
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+### Stopping Services
+
+```bash
+podman-compose down
+```
+
+---
+
+## 💻 Option 2: Local Development (Manual Setup)
+
+For development, you'll want to run components individually.
+
+### Step 1: Start PostgreSQL
+
+```bash
+# Using Podman (simplest)
+podman-compose up -d postgres
+
+# OR using native PostgreSQL
+# Ensure PostgreSQL is running and create database:
+# createdb hermes
+```
+
+### Step 2: Setup hermes-data Package
+
+```bash
+# Create and activate virtual environment
+cd hermes-data
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/ -v
+```
+
+### Step 3: Setup Backend
+
+```bash
+cd hermes-backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies (includes hermes-data)
 pip install -r requirements.txt
-# (OR manually: pip install polars fastapi uvicorn pandas requests)
+
+# Configure environment
+cp ../.env.example .env
+# Edit .env with your settings
+
+# Run tests
+pytest tests/ -v
+
+# Start development server
+uvicorn main:app --reload --port 8000
 ```
 
-### 🚀 Quick Start (One Command)
-Run the entire stack (Backend + Frontend) with a single script:
-```bash
-./start_dev.sh
-```
+### Step 4: Setup Frontend
 
-### Manual Setup
-If you prefer running components individually:
-
-### 1. Run the API Server
 ```bash
-# From project root
-hermes-backend/venv/bin/uvicorn hermes-backend.main:app --reload --port 8000
-```
-> API is now live at `http://localhost:8000`
-
-### 3. Setup & Run Frontend
-```bash
-# Open new terminal
 cd hermes-frontend
 
-# Install Node Modules
+# Install dependencies
 npm install
 
-# Start Dev Server
+# Start development server
 npm run dev
 ```
-> Dashboard is now live at `http://localhost:5173` (or 5175 if busy)
+
+### Step 5: Access Application
+
+- **Dashboard**: http://localhost:5173
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+---
+
+## ⚙️ Configuration
+
+All configuration is done via environment variables (or `.env` file).
+
+### Core Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HERMES_STORAGE_PROVIDER` | `local` | Storage backend: `local`, `s3` (future), `gcs` (future) |
+| `HERMES_DATA_DIR` | `hermes-backend/data/minute` | Path to Parquet data files |
+| `HERMES_CACHE_ENABLED` | `true` | Enable in-memory caching |
+| `HERMES_CACHE_MAX_SIZE_MB` | `512` | Maximum cache size in MB |
+| `HERMES_DATABASE_URL` | `postgresql://hermes:hermes_secret@localhost:5432/hermes` | PostgreSQL connection |
+| `HERMES_REGISTRY_ENABLED` | `true` | Enable data registry |
+
+### Example .env file
+
+```bash
+# Storage
+HERMES_STORAGE_PROVIDER=local
+HERMES_DATA_DIR=hermes-backend/data/minute
+
+# Cache
+HERMES_CACHE_ENABLED=true
+HERMES_CACHE_MAX_SIZE_MB=512
+
+# Database
+HERMES_DATABASE_URL=postgresql://hermes:hermes_secret@localhost:5432/hermes
+HERMES_REGISTRY_ENABLED=true
+```
 
 ---
 
@@ -105,11 +243,29 @@ npm run dev
 
 ## 🖥️ API Reference
 
-### `POST /backtest`
-Run a simulation on historical data.
+### Health Check
+```bash
+GET /
+# Returns: {"status": "Hermes API is running"}
+```
 
-**Payload:**
-```json
+### List Instruments
+```bash
+GET /instruments
+# Returns: ["AARTIIND", "ABB", "RELIANCE", ...]
+```
+
+### Get Market Data
+```bash
+GET /data/{symbol}?timeframe=1h
+# Returns: {symbol, candles: [...]}
+```
+
+### Run Backtest
+```bash
+POST /backtest
+Content-Type: application/json
+
 {
   "symbol": "AARTIIND",
   "strategy": "RSIStrategy",
@@ -119,19 +275,106 @@ Run a simulation on historical data.
   },
   "initial_cash": 100000
 }
-```
 
-**Response:**
-Returns `equity_curve` (time-series), `signals` (buy/sell markers), and `metrics` (Sharpe, Drawdown).
+# Returns: {equity_curve, signals, metrics, candles}
+```
 
 ---
 
-## 🛡️ Robustness
+## 🧪 Running Tests
 
-Hermes includes a **Data Guard** layer that:
-1.  Drops rows where `Price <= 0`.
-2.  Fills `NaN` values in calculations to prevent `Infinity` returns.
-3.  Ensures `Signal` states are latched (Held) correctly to simulate real positions.
+### All Tests (Data + Backend)
+
+```bash
+# hermes-data tests
+cd hermes-data && source .venv/bin/activate && pytest tests/ -v
+
+# hermes-backend tests
+cd hermes-backend && source venv/bin/activate && pytest tests/ -v --cov
+```
+
+### Test Coverage
+
+```bash
+cd hermes-backend
+pytest tests/ -v --cov --cov-report=html
+open htmlcov/index.html
+```
+
+---
+
+## 🛡️ Data Guard
+
+Hermes includes a robust **Data Guard** layer that:
+1. Drops rows where `Price <= 0`.
+2. Fills `NaN` values in calculations to prevent `Infinity` returns.
+3. Ensures `Signal` states are latched (held) correctly to simulate real positions.
+
+---
+
+## 📦 Package Structure
+
+### hermes-data
+
+The separated data layer provides:
+
+- **DataProvider** - Abstract interface for pluggable storage
+- **LocalFileProvider** - Reads Parquet files from disk
+- **MemoryCache** - LRU cache with size limits
+- **DataService** - Unified facade for data access
+- **RegistryService** - PostgreSQL-backed metadata catalog
+
+```python
+from hermes_data import DataService
+
+service = DataService()
+df = service.get_market_data(["RELIANCE"], "2024-01-01", "2024-12-31")
+symbols = service.list_instruments()
+```
+
+---
+
+## 🔮 Roadmap
+
+- [ ] **S3 Provider** - Load data from AWS S3
+- [ ] **GCS Provider** - Load data from Google Cloud Storage
+- [ ] **Redis Cache** - Distributed caching for multi-instance deployments
+- [ ] **Live Trading** - Connect to broker APIs
+- [ ] **Strategy Builder** - No-code strategy creation
+
+---
+
+## 📅 Database Access
+
+You can access the PostgreSQL registry database in two ways:
+
+### 1. Command Line (via Container)
+
+```bash
+# Connect to psql shell inside the container
+podman exec -it hermes-postgres psql -U hermes -d hermes
+
+# List tables
+\dt
+
+# Query instruments
+SELECT * FROM instruments;
+```
+
+### 2. GUI Clients (DBeaver, TablePlus, PgAdmin)
+
+- **Host**: `localhost`
+- **Port**: `5432`
+- **Database**: `hermes`
+- **User**: `hermes`
+- **Password**: `hermes_secret`
+- **URL**: `postgresql://hermes:hermes_secret@localhost:5432/hermes`
+
+---
+
+## 📝 Development Log
+
+See `docs/development_progress.log` for detailed development history.
 
 ---
 

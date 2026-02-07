@@ -1,0 +1,32 @@
+[project]
+name = "hermes-data"
+version = "0.2.0"
+description = "Data layer for Hermes backtesting platform"
+requires-python = ">=3.11"
+dependencies = [
+    "polars>=0.20.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "asyncpg>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "pytest-asyncio", "ruff"]
+cloud = ["boto3", "google-cloud-storage"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hermes_data"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

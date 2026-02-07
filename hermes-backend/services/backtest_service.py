@@ -21,13 +21,13 @@ class BacktestService:
     def run_backtest(self, request: BacktestRequest) -> BacktestResponse:
         logging.info(f"Running backtest for {request.symbol} with {request.strategy}")
         
-        # 1. Load Data (Delegate to MarketDataService essentially, but we need the RAW data for backtest, not resampled)
-        # We need a method in MarketDataService to get raw data
-        data_dir = self.market_data_service.get_data_dir()
-        from engine.loader import DataLoader
-        loader = DataLoader(data_dir=data_dir)
+        # 1. Load Data using the data service (provides caching)
         try:
-            df = loader.load_data([request.symbol.upper()], start_date=request.start_date, end_date=request.end_date)
+            df = self.market_data_service.data_service.get_market_data(
+                [request.symbol.upper()],
+                start_date=request.start_date,
+                end_date=request.end_date,
+            )
         except Exception as e:
             raise ValueError(f"Data load failed for {request.symbol}: {str(e)}")
 
