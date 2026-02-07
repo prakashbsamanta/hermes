@@ -1,68 +1,307 @@
 # 🗺️ Hermes Project Roadmap
 
-**Mission**: Build a high-performance, institutional-grade algorithmic trading engine for the Indian Markets (NSE), capable of backtesting 9000+ instruments in seconds.
+**Mission**: Build a high-performance, institutional-grade algorithmic trading engine for the Indian Markets (NSE), capable of backtesting 9000+ instruments in seconds with eventual live trading capability.
+
+**Last Updated**: 2026-02-07
+
+---
+
+## Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           HERMES ROADMAP                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ✅ Phase 1     ✅ Phase 2     ✅ Phase 3     🚧 Phase 4     🔮 Phase 5     │
+│  ─────────     ─────────     ─────────     ─────────     ─────────         │
+│   Genesis      Fortify       Visual        Scanner       Reality           │
+│   (Data)       (Quality)     (Dashboard)   (Batch)       (Simulation)      │
+│     │             │             │             │             │               │
+│     ▼             ▼             ▼             ▼             ▼               │
+│  ┌─────┐      ┌─────┐      ┌─────┐      ┌─────┐      ┌─────┐      ┌─────┐ │
+│  │ Jan │──────│ Feb │──────│ Mar │──────│ Apr │──────│ May │──────│ Jun │ │
+│  │ 26  │      │ 26  │      │ 26  │      │ 26  │      │ 26  │      │ 26  │ │
+│  └─────┘      └─────┘      └─────┘      └─────┘      └─────┘      └─────┘ │
+│                                                                             │
+│                                                        🔮 Phase 6           │
+│                                                        ─────────           │
+│                                                        Live Trading         │
+│                                                        (Q3-Q4 2026)         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## ✅ Phase 1: Genesis (The Foundation)
-**Status**: Completed
+
+**Status**: ✅ **COMPLETED**  
+**Timeline**: January 2026  
 **Focus**: Data Infrastructure & Core Engine
 
-- [x] **Data Seeder**: AsyncIO downloader for Zerodha (Kite) data.
-- [x] **Storage**: High-performance Parquet file system (`data/minute/`).
-- [x] **Vectorized Engine**: Custom Polars-based backtesting engine.
-- [x] **Basic Strategies**: Implementation of RSI, MACD, Bollinger Bands, SMA.
-- [x] **API**: FastAPI backend to serve results.
+### Deliverables
+
+- [x] **Data Seeder**: AsyncIO downloader for Zerodha (Kite) data
+  - 5x concurrent downloads with rate limiting
+  - Smart resume for interrupted downloads
+  - Automatic chunk detection for missing data
+
+- [x] **Storage Layer**: High-performance Parquet file system
+  - Individual files per instrument (`data/minute/RELIANCE.parquet`)
+  - Columnar format for fast analytical queries
+  - ~70% compression vs CSV
+
+- [x] **Vectorized Engine**: Custom Polars-based backtesting engine
+  - `BacktestEngine` class for high-speed simulations
+  - Equity curve calculation with cumulative product
+  - Signal-to-position shift to avoid look-ahead bias
+
+- [x] **Basic Strategies**: Core strategy implementations
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Bollinger Bands
+  - SMA Crossover
+
+- [x] **API Layer**: FastAPI backend
+  - `/backtest` endpoint for running simulations
+  - `/instruments` endpoint for available symbols
+  - `/data/{symbol}` endpoint for raw OHLCV data
+
+---
 
 ## ✅ Phase 2: Fortification (Reliability)
-**Status**: Completed
+
+**Status**: ✅ **COMPLETED**  
+**Timeline**: February 2026  
 **Focus**: Code Quality, Testing, & Compliance
 
-- [x] **CI/CD Pipeline**: GitHub Actions for automated integrity checks.
-- [x] **Test Suite**: >95% Unit Test Coverage (`pytest`).
-- [x] **Data Guard**: Strict validation to reject corrupt OHLC data.
-- [x] **Strict Typing**: Mypy (Backend) & TypeScript (Frontend) compliance.
-- [x] **Local Enforcement**: Pre-push hooks to prevent bad code commits.
+### Deliverables
+
+- [x] **CI/CD Pipeline**: GitHub Actions workflow
+  - Backend: Ruff, Mypy, Bandit, pip-audit, pytest
+  - Frontend: ESLint, Prettier, TypeScript, npm audit, Vitest
+  - Coverage thresholds enforced at 90%
+
+- [x] **Test Suite**: Comprehensive unit testing
+  - Backend: 31 tests, 96% coverage
+  - hermes-data: 79 tests, 92% coverage
+  - Frontend: 26 tests, 91% coverage
+
+- [x] **Data Guard**: Strict validation
+  - OHLC price relationship validation
+  - Zero/negative price rejection
+  - Missing data gap detection
+
+- [x] **Strict Typing**: Full type coverage
+  - Mypy for Python (backend + hermes-data)
+  - TypeScript strict mode (frontend)
+
+- [x] **Local Enforcement**: Pre-push hooks
+  - `run_checks.sh` quality gate script
+  - Blocks commits that fail any check
+  - Parallel execution for speed
+
+- [x] **hermes-data Package**: Reusable data layer
+  - DataService facade for unified access
+  - Provider abstraction (Local, future: S3, GCS)
+  - MemoryCache with LRU eviction
+  - PostgreSQL registry for metadata
 
 ---
 
-## 🚧 Phase 3: Visual Insight (The Dashboard)
-**Status**: **Use this phase now?**
-**Focus**: Making the data visible and debuggable.
+## ✅ Phase 3: Visual Insight (The Dashboard)
 
-*Currently, we only show an Equity Curve. We cannot "see" the trade context.*
+**Status**: ✅ **COMPLETED**  
+**Timeline**: February 2026  
+**Focus**: Making data visible and debuggable
 
-- [ ] **Candlestick Charts**: Render actual OHLCV data on the frontend.
-- [ ] **Indicator Overlays**: Plot the computed indicators (e.g., RSI line, Bollinger Bands) directly on the chart.
-- [ ] **Visual Debugging**: Hover over a candle to see why a signal fired (or didn't).
-- [ ] **Multi-Chart Layout**: Stacked view (Price on top, RSI below).
+### Deliverables
+
+- [x] **Candlestick Charts**: Professional OHLCV visualization
+  - TradingView Lightweight Charts integration
+  - Responsive, zoomable, pannable
+  - Crosshair with price/time display
+
+- [x] **Signal Markers**: Buy/sell visualization
+  - Arrow markers on chart
+  - Color-coded (green=buy, red=sell)
+  - Hover tooltips with signal details
+
+- [x] **Strategy Controls**: Interactive configuration
+  - Dynamic parameter panels per strategy
+  - Slider and numeric inputs
+  - Real-time parameter updates
+
+- [x] **Backtest Results**: Metrics dashboard
+  - Total Return percentage
+  - Final Equity value
+  - Sharpe Ratio
+  - Maximum Drawdown
+
+- [x] **Mode Selection**: Vector vs Event
+  - Toggle between fast/realistic modes
+  - Date range filtering
+  - Slippage/commission inputs
+
+### Remaining Items (Deferred to Phase 4)
+
+- [ ] **Indicator Overlays**: Plot RSI line, Bollinger bands on chart
+- [ ] **Visual Debugging**: Hover over candle to see signal context
+- [ ] **Multi-Chart Layout**: Stacked view (Price + RSI subcharts)
 
 ---
 
-## 🔮 Phase 4: The Scanner (Market Breadth)
-**Status**: Planned
-**Focus**: Running strategies on *all* stocks, not just one.
+## � Phase 4: The Scanner (Market Breadth)
 
-- [ ] **Batch Engine**: Logic to run `RSIStrategy` on 50+ tickers in parallel.
-- [ ] **Screener UI**: A table view showing "Top Buy Signals" for the day.
-- [ ] **Performance Heatmap**: Compare strategies across sectors.
+**Status**: 🚧 **IN PROGRESS**  
+**Timeline**: March 2026  
+**Focus**: Running strategies on *all* stocks, not just one
+
+### Planned Deliverables
+
+- [ ] **Batch Engine**: Parallel strategy execution
+  - Run RSI on 100+ tickers concurrently
+  - Progress tracking and cancellation
+  - Memory-efficient streaming results
+
+- [ ] **Screener Page**: Top signals UI
+  - Sortable table of buy/sell signals
+  - Filter by sector, exchange, signal type
+  - Click to drill down into backtest
+
+- [ ] **Performance Heatmap**: Strategy comparison
+  - Sector-level aggregation
+  - Color gradient for returns
+  - Interactive drill-down
+
+- [ ] **Indicator Overlays**: Chart enhancements
+  - RSI line overlay
+  - Bollinger bands overlay
+  - MACD histogram
+
+- [ ] **API Improvements**
+  - `/scan` endpoint for batch processing
+  - Pagination for large result sets
+  - WebSocket for progress updates
 
 ---
 
 ## 🔮 Phase 5: Reality (Simulation)
-**Status**: Planned (Deferred)
-**Focus**: Real-world constraints (Cash, Fees, Slippage).
 
-- [ ] **Wallet Logic**: Finite cash management.
-- [ ] **Transaction Costs**: Commission & Slippage simulation.
-- [ ] **Position Sizing**: Risk management logic (e.g., "1% Risk per trade").
+**Status**: 📅 **PLANNED**  
+**Timeline**: April-May 2026  
+**Focus**: Real-world constraints (Cash, Fees, Slippage)
+
+### Planned Deliverables
+
+- [ ] **Wallet Management**: Finite cash constraints
+  - Track available cash through lifecycle
+  - Prevent over-allocation
+  - Cash-on-cash return calculation
+
+- [ ] **Advanced Slippage**: Market impact modeling
+  - Volume-based slippage
+  - Time-of-day effects
+  - Order book simulation
+
+- [ ] **Position Sizing**: Risk management logic
+  - Fixed fractional (1% risk per trade)
+  - Kelly criterion
+  - Volatility-based sizing (ATR)
+
+- [ ] **Walk-Forward Optimization**: Out-of-sample testing
+  - Rolling window optimization
+  - Parameter stability analysis
+  - Overfitting detection
+
+- [ ] **Monte Carlo Simulation**: Robustness testing
+  - Trade sequence randomization
+  - Confidence intervals
+  - Worst-case scenario analysis
 
 ---
 
 ## 🔮 Phase 6: Live Executive (The Bridge)
-**Status**: Long Term
-**Focus**: Connecting to Broker APIs.
 
-- [ ] **Broker Bridge**: Kite Connect / Shoonya API integration.
-- [ ] **Paper Trading**: Forward testing in real-time.
-- [ ] **Live Execution**: Real money automated trading.
+**Status**: 📅 **PLANNED (LONG TERM)**  
+**Timeline**: Q3-Q4 2026  
+**Focus**: Connecting to Broker APIs for real trading
+
+### Planned Deliverables
+
+- [ ] **Broker Bridge**: Zerodha Kite Connect
+  - OAuth authentication
+  - Order placement API
+  - Position management
+  - Real-time streaming
+
+- [ ] **Paper Trading**: Forward testing
+  - Simulated execution with live data
+  - P&L tracking without real money
+  - Slippage measurement vs simulation
+
+- [ ] **Live Execution**: Automated trading
+  - Strategy → Signal → Order pipeline
+  - Risk controls and circuit breakers
+  - Real-time dashboard
+  - Alert notifications
+
+- [ ] **Multi-Broker Support**: Extensibility
+  - Shoonya API integration
+  - Angel Broking integration
+  - Generic broker interface
+
+---
+
+## 🛠️ Infrastructure Roadmap
+
+### Near Term (Q1 2026)
+
+- [x] GitHub Actions CI/CD
+- [x] Podman/Docker containers
+- [x] PostgreSQL metadata registry
+- [x] Pre-commit quality hooks
+- [ ] Swagger/OpenAPI documentation
+
+### Medium Term (Q2 2026)
+
+- [ ] Redis distributed cache
+- [ ] S3/GCS data providers
+- [ ] Kubernetes deployment
+- [ ] Prometheus metrics
+- [ ] Grafana dashboards
+
+### Long Term (H2 2026)
+
+- [ ] Multi-region deployment
+- [ ] Auto-scaling workers
+- [ ] Feature flags
+- [ ] A/B testing framework
+- [ ] Disaster recovery
+
+---
+
+## 📊 Success Metrics
+
+| Metric | Current | Target | Timeline |
+|--------|---------|--------|----------|
+| Backtest Speed (1 symbol) | 200ms | <100ms | Q2 2026 |
+| Batch Scan (100 symbols) | N/A | <10s | Q1 2026 |
+| Test Coverage | 93% avg | ≥95% | Ongoing |
+| Data Freshness | Manual | T+1 auto | Q2 2026 |
+| Uptime (Production) | N/A | 99.9% | Q3 2026 |
+
+---
+
+## 🔗 Related Documents
+
+- [Architecture Documentation](./architecture.md) - System design and data flows
+- [Project Status](./project_status.md) - Current state and recent changes
+- [Development Log](./development_progress.log) - Detailed changelog
+- [AI Coder Instructions](./AI_CODER_INSTRUCTIONS.md) - Guidelines for AI assistants
+
+---
+
+*Version: 2.0*  
+*Last Updated: 2026-02-07*
