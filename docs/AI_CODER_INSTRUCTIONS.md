@@ -88,11 +88,17 @@ This document serves as the supreme law for this project. All contributors (AI a
 
 ---
 
-## 7. 🧠 Efficiency & Algorithms
+## 8. 📚 Documentation & Knowledge Management
 
-*   **Time Complexity**: Be mindful of Big O. Rolling window calculations should use Polars' optimized `rolling_*` kernels.
-*   **Memory Efficiency**: Drop unused columns early (`lazy.select(...)`). Do not load entire datasets into RAM if only a slice is needed.
-*   **Caching**: Cache heavy results (like loaded Parquet files) in memory if accessed frequently (`lru_cache`).
+*   **Documentation as Code**: Documentation is not an afterthought; it is a core feature.
+*   **Progressive Updates**: As the project evolves, all relevant documentation files (`architecture.md`, `ROADMAP.md`, `project_status.md`, `API_REFERENCE.md`) MUST be updated to reflect current reality.
+*   **Total Transparency**: Any developer (human or AI) should be able to read the documentation and understand:
+    *   **How it works**: System design, data flows, and algorithmic logic.
+    *   **How to use it**: Setup instructions, command-line arguments, and UI navigation.
+    *   **How to deploy it**: Containerization, environment variables, and infrastructure setup.
+    *   **Standards**: Coding practices, naming conventions, and architectural patterns.
+*   **Continuous Logging**: After every successful major operation, a descriptive entry must be added to `docs/development_progress.log` using the standard format: `[TIMESTAMP] [STATUS] [COMPONENT] Description`.
 
 ---
 **Adhere to this Constitution, and we will build a legacy.**
+
