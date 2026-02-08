@@ -76,9 +76,14 @@ graph TB
 
 ```
 hermes/
+├── data/               # Shared market data (parquet files)
+│   ├── minute/         # Minute OHLCV data
+│   ├── daily/          # Daily OHLCV data
+│   └── instruments/    # Instrument master files
 ├── hermes-backend/     # FastAPI backend
 ├── hermes-frontend/    # React dashboard
-├── hermes-data/        # Separated data layer package
+├── hermes-data/        # Data access layer package
+├── hermes-ingest/      # Data ingestion package
 ├── podman-compose.yml  # Container orchestration
 └── docs/               # Documentation
 ```
@@ -153,7 +158,24 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-### Step 3: Setup Backend
+### Step 3: Setup hermes-ingest Package (Data Ingestion)
+
+```bash
+cd hermes-ingest
+python3 -m venv venv
+source venv/bin/activate
+
+# Install with test dependencies
+pip install -e ".[test]"
+
+# For cloud storage (Cloudflare R2)
+pip install -e ".[cloud]"
+
+# Run tests
+pytest tests/ -v
+```
+
+### Step 4: Setup Backend
 
 ```bash
 cd hermes-backend
@@ -204,19 +226,33 @@ All configuration is done via environment variables (or `.env` file).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HERMES_STORAGE_PROVIDER` | `local` | Storage backend: `local`, `s3` (future), `gcs` (future) |
-| `HERMES_DATA_DIR` | `hermes-backend/data/minute` | Path to Parquet data files |
+| `HERMES_STORAGE_PROVIDER` | `local` | Storage backend: `local`, `cloudflare_r2` |
+| `HERMES_DATA_DIR` | `data/minute` | Path to Parquet data files |
+| `HERMES_SINK_TYPE` | `local` | Ingest sink: `local`, `cloudflare_r2` |
 | `HERMES_CACHE_ENABLED` | `true` | Enable in-memory caching |
 | `HERMES_CACHE_MAX_SIZE_MB` | `512` | Maximum cache size in MB |
-| `HERMES_DATABASE_URL` | `postgresql://hermes:hermes_secret@localhost:5432/hermes` | PostgreSQL connection |
+| `HERMES_DATABASE_URL` | `postgresql://...` | PostgreSQL connection |
 | `HERMES_REGISTRY_ENABLED` | `true` | Enable data registry |
+
+### Cloudflare R2 Settings (Optional)
+
+| Variable | Description |
+|----------|-------------|
+| `HERMES_R2_ACCOUNT_ID` | Cloudflare account ID |
+| `HERMES_R2_ACCESS_KEY_ID` | R2 API access key |
+| `HERMES_R2_SECRET_ACCESS_KEY` | R2 API secret |
+| `HERMES_R2_BUCKET_NAME` | R2 bucket name |
+
+See [docs/CLOUDFLARE_R2_SETUP.md](docs/CLOUDFLARE_R2_SETUP.md) for complete setup guide.
 
 ### Example .env file
 
 ```bash
 # Storage
 HERMES_STORAGE_PROVIDER=local
-HERMES_DATA_DIR=hermes-backend/data/minute
+HERMES_DATA_DIR=data/minute
+HERMES_SINK_TYPE=local
+HERMES_SINK_PATH=data/minute
 
 # Cache
 HERMES_CACHE_ENABLED=true
@@ -225,6 +261,13 @@ HERMES_CACHE_MAX_SIZE_MB=512
 # Database
 HERMES_DATABASE_URL=postgresql://hermes:hermes_secret@localhost:5432/hermes
 HERMES_REGISTRY_ENABLED=true
+
+# Cloudflare R2 (optional - uncomment for cloud storage)
+# HERMES_SINK_TYPE=cloudflare_r2
+# HERMES_R2_ACCOUNT_ID=your_account_id
+# HERMES_R2_ACCESS_KEY_ID=your_access_key
+# HERMES_R2_SECRET_ACCESS_KEY=your_secret_key
+# HERMES_R2_BUCKET_NAME=hermes-market-data
 ```
 
 ---
@@ -283,9 +326,12 @@ Content-Type: application/json
 
 ## 🧪 Running Tests
 
-### All Tests (Data + Backend)
+### All Tests (Ingest + Data + Backend)
 
 ```bash
+# hermes-ingest tests
+cd hermes-ingest && source venv/bin/activate && pytest tests/ -v --cov
+
 # hermes-data tests
 cd hermes-data && source .venv/bin/activate && pytest tests/ -v
 
@@ -314,6 +360,24 @@ Hermes includes a robust **Data Guard** layer that:
 
 ## 📦 Package Structure
 
+### hermes-ingest
+
+Data ingestion package providing:
+
+- **DataSource** - Abstract interface for broker data
+- **ZerodhaSource** - Zerodha Kite data provider
+- **DataSink** - Abstract interface for storage
+- **LocalFileSink** - Write Parquet to local disk
+- **CloudflareR2Sink** - Write Parquet to Cloudflare R2
+- **create_sink()** - Factory for easy switching
+
+```python
+from hermes_ingest.sinks import create_sink
+
+sink = create_sink()  # Auto-creates based on HERMES_SINK_TYPE
+sink.write("RELIANCE", df)
+```
+
 ### hermes-data
 
 The separated data layer provides:
@@ -336,7 +400,8 @@ symbols = service.list_instruments()
 
 ## 🔮 Roadmap
 
-- [ ] **S3 Provider** - Load data from AWS S3
+- [x] **Cloudflare R2** - Cloud storage with zero egress fees
+- [ ] **AWS S3 Provider** - Load data from AWS S3
 - [ ] **GCS Provider** - Load data from Google Cloud Storage
 - [ ] **Redis Cache** - Distributed caching for multi-instance deployments
 - [ ] **Live Trading** - Connect to broker APIs

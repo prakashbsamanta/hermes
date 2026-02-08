@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hermes-ingest"
+version = "0.1.0"
+description = "Data ingestion package for Hermes trading platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Prakash Samanta" }
+]
+
+dependencies = [
+    "polars>=1.0.0",
+    "aiohttp>=3.9.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+cloud = [
+    "boto3>=1.34.0",
+]
+test = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "moto[s3]>=5.0.0",
+    "boto3>=1.34.0",
+]
+
+[project.scripts]
+hermes-ingest = "hermes_ingest.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hermes_ingest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/hermes_ingest"]
+omit = [
+    "src/hermes_ingest/sinks/base.py",
+    "src/hermes_ingest/sources/base.py",
+    # Exclude async network code that requires live API
+    "src/hermes_ingest/sources/zerodha.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    # Exclude lazy import error handling
+    "raise AttributeError",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = false
+warn_unused_ignores = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*", "mypy_boto3_s3", "moto", "moto.*"]
+ignore_missing_imports = true

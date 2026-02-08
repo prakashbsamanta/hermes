@@ -105,20 +105,31 @@ Hermes requires OHLCV (minute-level) data in Parquet format.
 
 Sample data is included in `hermes-backend/data/minute/` for testing.
 
-### Option 2: Fetch from Zerodha
+### Option 2: Fetch from Zerodha (using hermes-ingest)
 
 If you have a Zerodha Kite account:
 
 ```bash
-cd hermes-backend
+# Install hermes-ingest
+pip install -e hermes-ingest
 
-# Set your Kite credentials in .env
-export KITE_API_KEY="your_api_key"
-export KITE_ACCESS_TOKEN="your_access_token"
+# Set your credentials
+export HERMES_ZERODHA_ENCTOKEN="your_enctoken"
 
-# Fetch data for top 50 stocks
-python data_seeder.py --all --limit 50
+# Show current configuration
+hermes-ingest config
+
+# Fetch a single symbol
+hermes-ingest fetch --symbol RELIANCE
+
+# Sync multiple symbols (with limit)
+hermes-ingest sync --limit 50 --concurrency 5
+
+# List available symbols
+hermes-ingest list-symbols
 ```
+
+> **Getting enctoken**: Log in to Kite Web, open browser DevTools, go to Application → Cookies, and copy the `enctoken` value.
 
 ### Option 3: Use Your Own Data
 

@@ -38,3 +38,9 @@ hermes-frontend/.vite/
 hermes-data/.venv/
 hermes-data/dist/
 hermes-data/*.egg-info/
+
+# hermes-ingest package
+hermes-ingest/.venv/
+hermes-ingest/venv/
+hermes-ingest/dist/
+hermes-ingest/*.egg-info/

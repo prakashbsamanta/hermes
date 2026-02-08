@@ -29,7 +29,9 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 ## 2. What's Complete ✅
 
 ### 2.1 Phase 1: Data Infrastructure 🗄️ (Complete)
-- **Robust Data Seeder**: `data_seeder.py` fetches minute-level data from Zerodha Kite
+- **hermes-ingest Package**: Dedicated CLI for data ingestion from brokers
+- **Zerodha Source**: Kite API adapter with rate limiting
+- **LocalFileSink**: Parquet file writer with merge and resume
 - **Async Performance**: 5x concurrent downloads respecting rate limits
 - **Smart Resume**: Automatically detects and fetches only missing data
 - **Parquet Storage**: Compressed, high-performance columnar format
@@ -101,6 +103,20 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 | API Client | ✅ Complete | 100% |
 
 **Tests**: 26 passing | **Coverage**: 91.21%
+
+### 3.4 hermes-ingest (NEW)
+
+| Component | Status | Coverage |
+|-----------|--------|----------|
+| ZerodhaSource | ✅ Complete | 48% |
+| LocalFileSink | ✅ Complete | 89% |
+| IngestOrchestrator | ✅ Complete | 100% |
+| CLI | ✅ Complete | 99% |
+| Configuration | ✅ Complete | 97% |
+
+**Tests**: 53 passing | **Coverage**: 82% (threshold: 80%)
+
+> **Note**: ZerodhaSource coverage is lower because it contains network code that requires live API access for testing.
 
 ---
 

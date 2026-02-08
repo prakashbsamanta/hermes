@@ -196,6 +196,19 @@ hermes/
 │   │   └── hooks/            # React Query Hooks
 │   └── Containerfile         # Docker/Podman build
 │
+├── hermes-ingest/            # Data Ingestion Package (NEW)
+│   ├── src/hermes_ingest/
+│   │   ├── sources/          # Data Sources (Brokers)
+│   │   │   ├── base.py       # Abstract DataSource Interface
+│   │   │   └── zerodha.py    # Zerodha Kite Adapter
+│   │   ├── sinks/            # Storage Destinations
+│   │   │   ├── base.py       # Abstract DataSink Interface
+│   │   │   └── local.py      # LocalFileSink (Parquet)
+│   │   ├── config.py         # Configuration (Environment Variables)
+│   │   ├── orchestrator.py   # Job Orchestration
+│   │   └── cli.py            # CLI Entry Point (hermes-ingest)
+│   └── tests/                # Unit Tests (82% coverage)
+│
 ├── docs/                     # Documentation
 │   ├── architecture.md       # This file
 │   ├── ROADMAP.md            # Project roadmap

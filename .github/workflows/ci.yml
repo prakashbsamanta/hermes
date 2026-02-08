@@ -7,6 +7,33 @@ on:
     branches: [ "main" ]
 
 jobs:
+  hermes-ingest-checks:
+    name: Hermes-Ingest Quality Gate
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        
+    - name: Install Dependencies
+      working-directory: ./hermes-ingest
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[test]"
+        
+    - name: Run Ruff (Lint)
+      working-directory: ./hermes-ingest
+      run: ruff check .
+      
+    - name: Run Tests & Coverage
+      working-directory: ./hermes-ingest
+      run: pytest tests/ --cov=src/hermes_ingest
+
   hermes-data-checks:
     name: Hermes-Data Quality Gate
     runs-on: ubuntu-latest

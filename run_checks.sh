@@ -114,7 +114,38 @@ if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Tests or Cover
 cd ..
 
 # ==========================================
-# 3. FRONTEND CHECKS
+# 3. HERMES-INGEST CHECKS
+# ==========================================
+log_header "HERMES-INGEST (Python Package)"
+cd hermes-ingest || exit 1
+
+if [ -f ".venv/bin/activate" ]; then
+    . .venv/bin/activate
+elif [ -f "venv/bin/activate" ]; then
+    . venv/bin/activate
+else
+    log_failure "hermes-ingest: Virtual Environment Missing"
+fi
+
+# A. LINTING
+log_step "Running Linter (Ruff - Style & Quality)"
+ruff check .
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Linting (Ruff)"; fi
+
+# B. TYPE CHECKING
+log_step "Running Type Checker (Mypy - Static Analysis)"
+mypy src/hermes_ingest --ignore-missing-imports 2>/dev/null
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Type Checking (Mypy)"; fi
+
+# C. TESTS & COVERAGE
+log_step "Running Tests & Coverage (Threshold: 90%)"
+pytest tests/ --cov=src/hermes_ingest --cov-fail-under=90 --cov-report=term-missing
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Tests or Coverage (<90%)"; fi
+
+cd ..
+
+# ==========================================
+# 4. FRONTEND CHECKS
 # ==========================================
 log_header "HERMES FRONTEND (TypeScript/React)"
 cd hermes-frontend || exit 1

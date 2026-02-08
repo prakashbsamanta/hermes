@@ -14,7 +14,7 @@ class DataSettings(BaseSettings):
     storage_provider: str = "local"
 
     # Local file system settings
-    data_dir: str = "hermes-backend/data/minute"  # Relative to project root or absolute
+    data_dir: str = "data/minute"  # Shared data directory (relative to project root or absolute)
 
     # Cache settings
     cache_enabled: bool = True
