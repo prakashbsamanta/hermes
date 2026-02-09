@@ -128,6 +128,10 @@ class TestCLI:
             mock_settings.return_value.get_instrument_file.return_value = csv_path
 
             mock_orch = MagicMock()
+            # Support async context manager
+            mock_orch.__aenter__.return_value = mock_orch
+            mock_orch.__aexit__.return_value = None
+
             mock_orch.source.list_instruments.return_value = sample_instruments_df
             mock_orch.fetch_symbol = AsyncMock(return_value=True)
             mock_orch_cls.return_value = mock_orch
@@ -153,6 +157,10 @@ class TestCLI:
             mock_settings.return_value.get_instrument_file.return_value = csv_path
 
             mock_orch = MagicMock()
+            # Support async context manager
+            mock_orch.__aenter__.return_value = mock_orch
+            mock_orch.__aexit__.return_value = None
+
             mock_orch.source.list_instruments.return_value = sample_instruments_df
             mock_orch.fetch_symbol = AsyncMock(return_value=False)
             mock_orch_cls.return_value = mock_orch
@@ -173,6 +181,10 @@ class TestCLI:
             mock_settings.return_value.zerodha_enctoken = "test_token"
 
             mock_orch = MagicMock()
+            # Support async context manager
+            mock_orch.__aenter__.return_value = mock_orch
+            mock_orch.__aexit__.return_value = None
+
             mock_orch.sync = AsyncMock(return_value={"RELIANCE": True, "TCS": True})
             mock_orch_cls.return_value = mock_orch
 
@@ -193,6 +205,10 @@ class TestCLI:
             mock_settings.return_value.zerodha_enctoken = "test_token"
 
             mock_orch = MagicMock()
+            # Support async context manager
+            mock_orch.__aenter__.return_value = mock_orch
+            mock_orch.__aexit__.return_value = None
+
             mock_orch.sync = AsyncMock(return_value={"RELIANCE": True, "TCS": False})
             mock_orch_cls.return_value = mock_orch
 

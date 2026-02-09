@@ -40,6 +40,21 @@ class IngestOrchestrator:
         self._source = source
         self._sink = sink
 
+    async def close(self) -> None:
+        """Close resources (source connection)."""
+        if self._source:
+            await self._source.close()
+            # Give underlying connectors time to close to avoid "Unclosed connector" errors
+            await asyncio.sleep(0.250)
+
+    async def __aenter__(self) -> "IngestOrchestrator":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit."""
+        await self.close()
+
     @property
     def source(self) -> DataSource:
         """Get or create the data source."""

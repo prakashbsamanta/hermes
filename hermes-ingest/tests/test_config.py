@@ -53,7 +53,7 @@ class TestIngestSettings:
 
     def test_zerodha_settings_optional(self):
         """Test that Zerodha settings are optional."""
-        settings = IngestSettings()
+        settings = IngestSettings(_env_file=None)
 
         assert settings.zerodha_enctoken is None
         assert settings.zerodha_user_id is None

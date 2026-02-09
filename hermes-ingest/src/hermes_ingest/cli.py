@@ -48,25 +48,33 @@ def fetch(symbol: str, source: str) -> None:
         click.echo("Error: HERMES_ZERODHA_ENCTOKEN not set", err=True)
         sys.exit(1)
 
-    orchestrator = IngestOrchestrator(settings=settings)
+    async def _fetch() -> bool:
+        async with IngestOrchestrator(settings=settings) as orchestrator:
+            # Get token for symbol
+            instruments_df = orchestrator.source.list_instruments()
+            matching = instruments_df.filter(
+                instruments_df["tradingsymbol"] == symbol.upper()
+            )
 
-    # Get token for symbol
-    instruments_df = orchestrator.source.list_instruments()
-    matching = instruments_df.filter(
-        instruments_df["tradingsymbol"] == symbol.upper()
-    )
+            if matching.is_empty():
+                click.echo(f"Error: Symbol '{symbol}' not found in instruments", err=True)
+                sys.exit(1)
 
-    if matching.is_empty():
-        click.echo(f"Error: Symbol '{symbol}' not found in instruments", err=True)
+            row = matching.row(0, named=True)
+            token = row["instrument_token"]
+
+            click.echo(f"Fetching {symbol} (token: {token})...")
+
+            return await orchestrator.fetch_symbol(symbol.upper(), token)
+
+    # Run async fetch with cleanup
+    try:
+        success = asyncio.run(_fetch())
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
-
-    row = matching.row(0, named=True)
-    token = row["instrument_token"]
-
-    click.echo(f"Fetching {symbol} (token: {token})...")
-
-    # Run async fetch
-    success = asyncio.run(orchestrator.fetch_symbol(symbol.upper(), token))
 
     if success:
         click.echo(f"✓ Successfully fetched {symbol}")
@@ -104,15 +112,17 @@ def sync(source: str, limit: int | None, concurrency: int) -> None:
         click.echo("Error: HERMES_ZERODHA_ENCTOKEN not set", err=True)
         sys.exit(1)
 
-    orchestrator = IngestOrchestrator(settings=settings)
+    async def _sync() -> dict[str, bool]:
+        async with IngestOrchestrator(settings=settings) as orchestrator:
+            click.echo(f"Starting sync from {source}...")
+            if limit:
+                click.echo(f"  Limit: {limit} symbols")
+            click.echo(f"  Concurrency: {concurrency}")
 
-    click.echo(f"Starting sync from {source}...")
-    if limit:
-        click.echo(f"  Limit: {limit} symbols")
-    click.echo(f"  Concurrency: {concurrency}")
+            return await orchestrator.sync(limit=limit, concurrency=concurrency)
 
     # Run async sync
-    results = asyncio.run(orchestrator.sync(limit=limit, concurrency=concurrency))
+    results = asyncio.run(_sync())
 
     # Summary
     success = sum(1 for v in results.values() if v)

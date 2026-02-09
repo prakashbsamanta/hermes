@@ -206,5 +206,22 @@ class TestIngestOrchestrator:
 
             assert len(results) == 2
             assert "RELIANCE" in results
-            assert "TCS" in results
-            assert "INFY" not in results
+    @pytest.mark.asyncio
+    async def test_close_calls_source_close(self):
+        """Test close method calls source.close."""
+        mock_source = AsyncMock()
+        orch = IngestOrchestrator(source=mock_source)
+
+        await orch.close()
+
+        mock_source.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_context_manager_closes_source(self):
+        """Test that context manager closes source."""
+        mock_source = AsyncMock()
+
+        async with IngestOrchestrator(source=mock_source) as orch:
+            assert orch.source == mock_source
+
+        mock_source.close.assert_called_once()

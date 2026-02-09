@@ -37,7 +37,7 @@ class IngestSettings(BaseSettings):
 
     model_config = {
         "env_prefix": "HERMES_",
-        "env_file": ".env",
+        "env_file": str(Path(__file__).parents[3] / ".env"),
         "extra": "ignore",
     }
 
