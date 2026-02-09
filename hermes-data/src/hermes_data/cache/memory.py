@@ -42,7 +42,7 @@ class MemoryCache(CacheProvider):
     ) -> str:
         """Create a deterministic cache key."""
         raw = f"{','.join(sorted(symbols))}:{start_date or ''}:{end_date or ''}"
-        return hashlib.md5(raw.encode()).hexdigest()
+        return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()
 
     def get(
         self,

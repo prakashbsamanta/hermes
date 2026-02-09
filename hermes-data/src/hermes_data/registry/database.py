@@ -4,7 +4,7 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..config import DataSettings, get_settings
@@ -24,7 +24,7 @@ class Database:
         """
         self.settings = settings or get_settings()
         self._engine = None
-        self._session_factory = None
+        self._session_factory: Optional[sessionmaker[Session]] = None
     
     @property
     def engine(self):
@@ -41,7 +41,7 @@ class Database:
         return self._engine
     
     @property
-    def session_factory(self) -> sessionmaker:
+    def session_factory(self) -> sessionmaker[Session]:
         """Get or create the session factory."""
         if self._session_factory is None:
             self._session_factory = sessionmaker(
@@ -93,7 +93,7 @@ class Database:
         """Check if database connection is healthy."""
         try:
             with self.session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
             return True
         except Exception as e:
             logger.error(f"Database health check failed: {e}")

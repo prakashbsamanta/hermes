@@ -227,12 +227,12 @@ class RegistryService:
                 session.add(availability)
             
             # Update fields
-            availability.start_date = start_date
-            availability.end_date = end_date
-            availability.row_count = row_count
-            availability.file_path = file_path
-            availability.file_size_mb = file_size_mb
-            availability.last_updated = datetime.utcnow()
+            availability.start_date = start_date  # type: ignore
+            availability.end_date = end_date  # type: ignore
+            availability.row_count = row_count  # type: ignore
+            availability.file_path = file_path  # type: ignore
+            availability.file_size_mb = file_size_mb  # type: ignore
+            availability.last_updated = datetime.utcnow()  # type: ignore
             
             session.flush()
             session.expunge(availability)
