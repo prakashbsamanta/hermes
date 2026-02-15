@@ -43,3 +43,41 @@ class BacktestResponse(BaseModel):
     indicators: Dict[str, List[IndicatorPoint]] = {}
     status: str = "success"
     error: Optional[str] = None
+
+
+class ScanRequest(BaseModel):
+    strategy: str
+    params: Dict[str, Any] = {}
+    symbols: List[str] | None = None  # None = all instruments
+    initial_cash: float = 100000.0
+    mode: str = "vector"
+    start_date: str | None = None
+    end_date: str | None = None
+    max_concurrency: int = 10
+
+
+class ScanResult(BaseModel):
+    symbol: str
+    metrics: Dict[str, Any] = {}
+    signal_count: int = 0
+    last_signal: str | None = None
+    last_signal_time: int | None = None
+    status: str = "success"  # "success" | "error" | "cached"
+    error: str | None = None
+    cached: bool = False
+
+
+
+class ScanResponse(BaseModel):
+    strategy: str
+    total_symbols: int
+    completed: int
+    failed: int
+    cached_count: int = 0
+    fresh_count: int = 0
+    results: List[ScanResult]
+    elapsed_ms: int
+
+class StorageSettingsUpdate(BaseModel):
+    provider: str  # "local", "cloudflare_r2", "oracle_object_storage"
+

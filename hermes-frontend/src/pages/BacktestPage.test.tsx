@@ -1,11 +1,20 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BacktestPage } from "./BacktestPage";
 import { api } from "@/services/api";
+import { toast } from "sonner";
 
 // Mock Modules
 vi.mock("@/hooks/useBacktest");
 vi.mock("@/services/api");
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 vi.mock("@/components/ChartComponent", () => ({
   ChartComponent: () => <div data-testid="chart-component">Mock Chart</div>,
 }));
@@ -14,11 +23,12 @@ vi.mock("@/components/dashboard/DashboardHeader", () => ({
   DashboardHeader: (props: any) => (
     <div data-testid="dashboard-header">
       <button onClick={props.onRunBacktest}>Run Mock</button>
-      <input
-        data-testid="symbol-select"
-        value={props.selectedSymbol}
-        onChange={(e) => props.onSymbolChange(e.target.value)}
-      />
+      <button onClick={() => props.onAssetsChange(["AAPL"])}>
+        Select AAPL
+      </button>
+      <div data-testid="selected-assets">
+        {JSON.stringify(props.selectedAssets)}
+      </div>
     </div>
   ),
 }));
@@ -42,6 +52,7 @@ vi.mock("@/components/layout/DashboardLayout", () => ({
 }));
 vi.mock("@/components/backtest/StrategyConfigPanel", () => ({
   StrategyConfigPanel: () => <div>Config Panel</div>,
+  StrategyParamInput: () => <div>Param Input</div>,
 }));
 
 // Import hook after mocking
@@ -49,6 +60,7 @@ import { useBacktest } from "@/hooks/useBacktest";
 
 describe("BacktestPage", () => {
   const mockMutate = vi.fn();
+  const mockReset = vi.fn();
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -61,10 +73,12 @@ describe("BacktestPage", () => {
     // eslint-disable-next-line
     (useBacktest as any).mockReturnValue({
       mutate: mockMutate,
+      reset: mockReset,
       isPending: false,
       data: null,
       isError: false,
       error: null,
+      isSuccess: false,
     });
   });
 
@@ -78,15 +92,20 @@ describe("BacktestPage", () => {
   it("triggers backtest mutation when driven by header", async () => {
     render(<BacktestPage />);
 
-    // Wait for inputs to be populated from API
+    // Select asset
+    const selectBtn = screen.getByText("Select AAPL");
+    fireEvent.click(selectBtn);
+
+    // Wait for state update
     await waitFor(() => {
-      const input = screen.getByTestId("symbol-select") as HTMLInputElement;
-      expect(input.value).toBe("AAPL");
+      expect(screen.getByTestId("selected-assets")).toHaveTextContent(
+        '["AAPL"]',
+      );
     });
 
     // Simulate click from the mocked header
     const runBtn = screen.getByText("Run Mock");
-    runBtn.click();
+    fireEvent.click(runBtn);
 
     expect(mockMutate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,10 +115,11 @@ describe("BacktestPage", () => {
     );
   });
 
-  it("displays metrics when data is available", () => {
+  it("displays metrics when data is available", async () => {
     // eslint-disable-next-line
     (useBacktest as any).mockReturnValue({
       mutate: mockMutate,
+      reset: mockReset,
       data: {
         metrics: {
           "Total Return": "10%",
@@ -108,26 +128,38 @@ describe("BacktestPage", () => {
           "Max Drawdown": "-5%",
         },
         candles: [],
-        indicators: [],
+        indicators: {},
         signals: [],
       },
     });
 
     render(<BacktestPage />);
-    expect(screen.getByText("Total Return: 10%")).toBeInTheDocument();
+
+    // Must switch to Single Mode (select one asset) to see metrics
+    const selectBtn = screen.getByText("Select AAPL");
+    fireEvent.click(selectBtn);
+
+    // Wait for update
+    await waitFor(() => {
+      expect(screen.getByText("Total Return: 10%")).toBeInTheDocument();
+    });
+
     expect(screen.getByText("Final Equity: 11000")).toBeInTheDocument();
     expect(screen.getByTestId("chart-component")).toBeInTheDocument();
   });
 
-  it("displays error message on failure", () => {
+  it("displays error message via toast on failure", () => {
     // eslint-disable-next-line
     (useBacktest as any).mockReturnValue({
       mutate: mockMutate,
+      reset: mockReset,
       isError: true,
       error: { message: "Backtest Failed" },
     });
 
     render(<BacktestPage />);
-    expect(screen.getByText("Error: Backtest Failed")).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Backtest failed: Backtest Failed",
+    );
   });
 });

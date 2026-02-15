@@ -63,7 +63,36 @@ class DataService:
             logger.info(f"Using LocalFileProvider with path: {data_path}")
             return LocalFileProvider(data_path)
         
-        # Future: Add S3, GCS providers here
+        if self.settings.storage_provider == "cloudflare_r2":
+            if not (self.settings.r2_access_key_id and self.settings.r2_secret_access_key and self.settings.r2_account_id):
+                raise ValueError("Cloudflare R2 credentials are required (HERMES_R2_*)")
+            
+            from .providers.s3 import S3Provider
+            endpoint = f"https://{self.settings.r2_account_id}.r2.cloudflarestorage.com"
+            logger.info(f"Using S3Provider (R2) with endpoint: {endpoint}")
+            return S3Provider(
+                endpoint_url=endpoint,
+                access_key_id=self.settings.r2_access_key_id,
+                secret_access_key=self.settings.r2_secret_access_key,
+                bucket_name=self.settings.r2_bucket_name,
+                region_name="auto",
+            )
+
+        if self.settings.storage_provider == "oracle_object_storage":
+            if not (self.settings.oci_namespace and self.settings.oci_region and self.settings.oci_access_key_id and self.settings.oci_secret_access_key):
+                raise ValueError("Oracle Object Storage credentials are required (HERMES_OCI_*)")
+            
+            from .providers.s3 import S3Provider
+            endpoint = f"https://{self.settings.oci_namespace}.compat.objectstorage.{self.settings.oci_region}.oraclecloud.com"
+            logger.info(f"Using S3Provider (Oracle) with endpoint: {endpoint}")
+            return S3Provider(
+                endpoint_url=endpoint,
+                access_key_id=self.settings.oci_access_key_id,
+                secret_access_key=self.settings.oci_secret_access_key,
+                bucket_name=self.settings.oci_bucket_name,
+                region_name=self.settings.oci_region,
+            )
+
         raise ValueError(f"Unknown storage provider: {self.settings.storage_provider}")
 
     def _create_cache(self) -> Optional[CacheProvider]:

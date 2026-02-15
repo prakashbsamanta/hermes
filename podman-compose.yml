@@ -33,16 +33,15 @@ services:
     container_name: hermes-backend
     ports:
       - "8000:8000"
-    volumes:
-      # Mount data directory as read-only
-      - ./hermes-backend/data:/app/data:ro
+    env_file:
+      - .env
     environment:
-      - HERMES_STORAGE_PROVIDER=local
-      - HERMES_DATA_DIR=/app/data/minute
-      - HERMES_CACHE_ENABLED=true
-      - HERMES_CACHE_MAX_SIZE_MB=512
       - HERMES_DATABASE_URL=postgresql://hermes:hermes_secret@postgres:5432/hermes
-      - HERMES_REGISTRY_ENABLED=true
+      # Override storage provider to ensure consistent startup if needed, or rely on .env
+      # We override DB URL because .env points to localhost
+    volumes:
+      # Mount root data directory as read-only
+      - ./data:/app/data:ro
     networks:
       - hermes-network
     depends_on:
@@ -79,13 +78,4 @@ volumes:
   hermes-postgres-data:
     driver: local
 
-# Future additions:
-# 
-# redis:
-#   image: redis:7-alpine
-#   container_name: hermes-redis
-#   ports:
-#     - "6379:6379"
-#   networks:
-#     - hermes-network
-#   restart: unless-stopped
+

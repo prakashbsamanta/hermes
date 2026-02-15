@@ -1,7 +1,7 @@
 # 📊 Hermes Project Status Report
 
-**Date**: 2026-02-07  
-**Version**: Phase 3 Beta  
+**Date**: 2026-02-15  
+**Version**: Phase 3 Complete → Phase 4 Starting  
 **Overall Health**: ✅ All CI checks passing
 
 ---
@@ -11,7 +11,7 @@
 Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian stock market (NSE). The system is designed for high performance, capable of backtesting 9000+ instruments with minute-level data in seconds.
 
 ### Current Milestone
-**Phase 3: Visual Insight** - Dashboard with interactive candlestick charts, buy/sell signal markers, and real-time backtest visualization is complete.
+**Phase 3: Visual Insight** is fully complete. **Phase 4: The Scanner** is now integrated into the Backtest Lab (Batch Mode). Infrastructure for dynamic cloud storage switching is effectively complete.
 
 ### Key Metrics
 
@@ -19,6 +19,7 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 |--------|-------|--------|
 | Backend Test Coverage | 96.17% | ≥90% ✅ |
 | hermes-data Coverage | 92.14% | ≥90% ✅ |
+| hermes-ingest Coverage | 91.41% | ≥90% ✅ |
 | Frontend Test Coverage | 91.21% | ≥90% ✅ |
 | Total Instruments | 9,000+ | - |
 | Backtest Speed (vector) | ~200ms | <500ms ✅ |
@@ -31,10 +32,10 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 ### 2.1 Phase 1: Data Infrastructure 🗄️ (Complete)
 - **hermes-ingest Package**: Dedicated CLI for data ingestion from brokers
 - **Zerodha Source**: Kite API adapter with rate limiting
-- **LocalFileSink**: Parquet file writer with merge and resume
-- **Async Performance**: 5x concurrent downloads respecting rate limits
+- **3 Storage Sinks**: Local, Cloudflare R2, Oracle OCI (factory pattern)
+- **DataSink Base Class**: Centralized zstd compression, merge/dedup, resume
+- **Async Performance**: 5x concurrent downloads with rich progress bars
 - **Smart Resume**: Automatically detects and fetches only missing data
-- **Parquet Storage**: Compressed, high-performance columnar format
 
 ### 2.2 Phase 2: Backtesting Engine ⚙️ (Complete)
 - **Dual-Mode Engine**:
@@ -56,6 +57,7 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 - **hermes-data Package**: Reusable data layer with registry
 - **PostgreSQL Registry**: Instrument metadata and load logging
 - **Pre-Commit Hooks**: Local enforcement of quality standards
+- **Multi-Cloud Storage**: Cloudflare R2 + Oracle OCI with zero-config switching
 
 ---
 
@@ -104,17 +106,22 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 
 **Tests**: 26 passing | **Coverage**: 91.21%
 
-### 3.4 hermes-ingest (NEW)
+### 3.4 hermes-ingest
 
 | Component | Status | Coverage |
 |-----------|--------|----------|
 | ZerodhaSource | ✅ Complete | 48% |
-| LocalFileSink | ✅ Complete | 89% |
-| IngestOrchestrator | ✅ Complete | 100% |
-| CLI | ✅ Complete | 99% |
-| Configuration | ✅ Complete | 97% |
+| LocalFileSink | ✅ Complete | 91% |
+| CloudflareR2Sink | ✅ Complete | 86% |
+| OracleObjectStorageSink | ✅ Complete | 86% |
+| DataSink Base | ✅ Complete | 100% |
+| Sink Factory | ✅ Complete | 100% |
+| IngestOrchestrator | ✅ Complete | 95% |
+| CLI | ✅ Complete | 96% |
+| Configuration | ✅ Complete | 98% |
+| ProgressTracker | ✅ Complete | 77% |
 
-**Tests**: 53 passing | **Coverage**: 82% (threshold: 80%)
+**Tests**: 100 passing | **Coverage**: 91.41%
 
 > **Note**: ZerodhaSource coverage is lower because it contains network code that requires live API access for testing.
 
@@ -128,7 +135,9 @@ Hermes is an **Institutional-Grade Algorithmic Trading Platform** for the Indian
 Frontend:  React 18 + TypeScript + Vite + TailwindCSS + Lightweight Charts
 Backend:   FastAPI + Pydantic + Uvicorn + Polars + NumPy
 Data:      hermes-data package (Providers + Cache + Registry)
-Storage:   PostgreSQL (metadata) + Parquet files (OHLCV data)
+Ingest:    hermes-ingest package (Sources + Sinks + CLI)
+Storage:   PostgreSQL (metadata) + Parquet files (OHLCV, zstd compressed)
+Cloud:     Cloudflare R2 + Oracle Object Storage (S3-compatible)
 CI/CD:     GitHub Actions + Pre-commit hooks
 Container: Podman/Docker with compose orchestration
 ```
@@ -138,32 +147,31 @@ Container: Podman/Docker with compose orchestration
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | DataFrame Library | Polars | 10x faster than Pandas, Rust-based |
-| Data Format | Parquet | Compressed, columnar, lazy loading |
+| Data Format | Parquet + zstd | Compressed, columnar, lazy loading |
 | Chart Library | Lightweight Charts | Professional, interactive, TradingView |
 | Event System | Custom EventBus | Flexible pub/sub for backtesting |
 | Caching | LRU Memory Cache | Fast repeated backtests |
 | Registry DB | PostgreSQL | Mature, reliable metadata storage |
+| Sink Architecture | Factory + Base Class | DRY — compression, dedup centralized |
+| Cloud Storage | S3-compatible API | R2 + OCI through single boto3 interface |
 
 ---
 
 ## 5. Recent Changes (Last 7 Days)
 
-### 2026-02-07
-- ✅ Fixed CI failures with lazy service initialization
-- ✅ Added hermes-data to CI workflow
-- ✅ Added comprehensive tests (RSI event mode, backtest service)
-- ✅ Backend coverage improved to 96%
-- ✅ Created comprehensive architecture documentation
-
-### 2026-02-06
-- ✅ Stabilized event-driven backtesting engine
-- ✅ Fixed API model inconsistencies
-- ✅ Implemented date filtering for data loads
-
-### 2026-02-01
-- ✅ Implemented chart signal tooltips
-- ✅ Added fullscreen chart mode
-- ✅ Enhanced chart zoom controls
+### 2026-02-15
+- ✅ Added Oracle Cloud Object Storage sink (3rd storage option)
+- ✅ Fixed `MissingContentLength` error in OCI S3 API
+- ✅ Fixed `list-symbols` CLI to use sink factory
+- ✅ Centralized 4 duplicated patterns in DataSink base class
+- ✅ Added configurable zstd compression
+- ✅ Added real-time candle count to progress bar
+- ✅ Code audit: fixed ruff lint errors, removed dead code
+- ✅ Coverage: 100 tests, 91.41% (hermes-ingest)
+- ✅ Implemented `hermes-data` S3 Provider (R2 & Oracle support)
+- ✅ Added Dynamic Storage Switching (Local <-> Cloud) via UI
+- ✅ Integrated Scanner into Backtest Lab (Batch Mode)
+- ✅ Refactored `hermes-backend` to support hot-reloading of data services
 
 ---
 
@@ -173,34 +181,38 @@ Container: Podman/Docker with compose orchestration
 |-------|----------|--------|
 | RSI strategy lines 119-120 uncovered | Low | Deferred |
 | datetime.utcnow() deprecation warning | Low | Tracked |
-| Chart indicator overlays incomplete | Medium | In Progress |
+| Chart indicator overlays incomplete | Medium | Phase 4 |
 | No API authentication | Medium | Phase 4 |
+| ZerodhaSource test coverage (48%) | Low | Requires live API |
+| Pre-commit hooks fail on hermes-data (missing venv) | Low | Bypassed |
 
 ---
 
 ## 7. Next Steps 🚀
 
-### Immediate (This Week)
-- [ ] Add indicator overlays (RSI line on chart)
-- [ ] Implement visual debugging (hover context)
-- [ ] Add multi-chart layout option
+### Immediate (Phase 4.1 — Scanner Backend)
+- [x] Create `ScannerService` — batch backtest across N symbols
+- [x] Add `POST /scan` API endpoint
+- [x] Add scan result models (`ScanRequest`, `ScanResponse`, `ScanResult`)
+- [x] Implement async parallel execution with semaphore
 
-### Short Term (This Month)
-- [ ] Scanner/Screener page (batch processing)
-- [ ] Top signals table
-- [ ] Sector performance heatmap
+### Short Term (Phase 4.2 — Scanner Frontend)
+- [x] Create `ScannerView` component (integrated in Backtest)
+- [x] Sortable results table with signal filtering
+- [x] Click-to-drill-down into full backtest
+- [ ] WebSocket/SSE progress updates
 
-### Medium Term (Q2 2026)
+### Medium Term (Phase 4.3 — Indicator Overlays)
+- [ ] RSI line overlay on chart
+- [ ] Bollinger bands overlay
+- [ ] MACD histogram subchart
+- [ ] Multi-chart layout
+
+### Long Term (Phase 5+)
 - [ ] Position sizing and risk management
 - [ ] Walk-forward optimization
 - [ ] Redis distributed cache
-- [ ] S3 data provider
-
-### Long Term (H2 2026)
-- [ ] Zerodha Kite Connect integration
-- [ ] Paper trading mode
-- [ ] Real-time data streaming
-- [ ] Live order execution
+- [ ] Broker API integration
 
 ---
 
@@ -231,17 +243,18 @@ podman-compose up -d
 # Individual packages
 cd hermes-backend && pytest --cov=. --cov-fail-under=90
 cd hermes-data && pytest --cov=src/hermes_data --cov-fail-under=90
+cd hermes-ingest && pytest --cov=src/hermes_ingest --cov-fail-under=90
 cd hermes-frontend && npm run test:coverage
 ```
 
 ### Fetch New Data
 
 ```bash
-cd hermes-backend
-python data_seeder.py --all --limit 50
+cd hermes-ingest && source venv/bin/activate
+hermes-ingest sync --limit 50 --concurrency 5
 ```
 
 ---
 
-*Generated: 2026-02-07T22:42:00+05:30*  
-*Next Review: 2026-02-14*
+*Generated: 2026-02-15T20:16:00+05:30*  
+*Next Review: 2026-02-22*

@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-Active-success)
 ![Python](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Polars-blue)
 ![React](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-cyan)
-![Data](https://img.shields.io/badge/Data-PostgreSQL%20%7C%20Parquet-orange)
+![Data](https://img.shields.io/badge/Data-PostgreSQL%20%7C%20Parquet%20%7C%20R2%20%7C%20OCI-orange)
 
 **Hermes** is a high-performance, vectorized algorithmic trading engine designed for the Indian Stock Market. It combines the raw speed of **Rust-based Polars** for backtesting with a premium **React + Lightweight Charts** dashboard for visualization.
 
@@ -226,9 +226,10 @@ All configuration is done via environment variables (or `.env` file).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HERMES_STORAGE_PROVIDER` | `local` | Storage backend: `local`, `cloudflare_r2` |
+| `HERMES_STORAGE_PROVIDER` | `local` | Storage backend: `local`, `cloudflare_r2`, `oracle_object_storage` |
 | `HERMES_DATA_DIR` | `data/minute` | Path to Parquet data files |
-| `HERMES_SINK_TYPE` | `local` | Ingest sink: `local`, `cloudflare_r2` |
+| `HERMES_SINK_TYPE` | `local` | Ingest sink: `local`, `cloudflare_r2`, `oracle_object_storage` |
+| `HERMES_COMPRESSION` | `zstd` | Parquet compression: `zstd`, `snappy`, `lz4`, `gzip`, `uncompressed` |
 | `HERMES_CACHE_ENABLED` | `true` | Enable in-memory caching |
 | `HERMES_CACHE_MAX_SIZE_MB` | `512` | Maximum cache size in MB |
 | `HERMES_DATABASE_URL` | `postgresql://...` | PostgreSQL connection |
@@ -244,6 +245,18 @@ All configuration is done via environment variables (or `.env` file).
 | `HERMES_R2_BUCKET_NAME` | R2 bucket name |
 
 See [docs/CLOUDFLARE_R2_SETUP.md](docs/CLOUDFLARE_R2_SETUP.md) for complete setup guide.
+
+### Oracle Cloud Object Storage Settings (Optional)
+
+| Variable | Description |
+|----------|-------------|
+| `HERMES_OCI_NAMESPACE` | OCI tenancy namespace |
+| `HERMES_OCI_REGION` | OCI region (e.g., `ap-hyderabad-1`) |
+| `HERMES_OCI_ACCESS_KEY_ID` | Customer Secret Key access key |
+| `HERMES_OCI_SECRET_ACCESS_KEY` | Customer Secret Key secret |
+| `HERMES_OCI_BUCKET_NAME` | OCI bucket name |
+
+See [docs/ORACLE_OBJECT_STORAGE_SETUP.md](docs/ORACLE_OBJECT_STORAGE_SETUP.md) for complete setup guide.
 
 ### Example .env file
 
@@ -347,6 +360,13 @@ pytest tests/ -v --cov --cov-report=html
 open htmlcov/index.html
 ```
 
+### Fetch New Data
+
+```bash
+cd hermes-ingest && source venv/bin/activate
+hermes-ingest sync --limit 50 --concurrency 5
+```
+
 ---
 
 ## 🛡️ Data Guard
@@ -366,9 +386,10 @@ Data ingestion package providing:
 
 - **DataSource** - Abstract interface for broker data
 - **ZerodhaSource** - Zerodha Kite data provider
-- **DataSink** - Abstract interface for storage
+- **DataSink** - Abstract interface with centralized compression, merge/dedup
 - **LocalFileSink** - Write Parquet to local disk
 - **CloudflareR2Sink** - Write Parquet to Cloudflare R2
+- **OracleObjectStorageSink** - Write Parquet to Oracle OCI
 - **create_sink()** - Factory for easy switching
 
 ```python
@@ -401,8 +422,10 @@ symbols = service.list_instruments()
 ## 🔮 Roadmap
 
 - [x] **Cloudflare R2** - Cloud storage with zero egress fees
+- [x] **Oracle OCI** - Cloud storage with generous free tier
+- [x] **zstd Compression** - Configurable Parquet compression
+- [ ] **Scanner/Screener** - Batch strategy execution across all stocks
 - [ ] **AWS S3 Provider** - Load data from AWS S3
-- [ ] **GCS Provider** - Load data from Google Cloud Storage
 - [ ] **Redis Cache** - Distributed caching for multi-instance deployments
 - [ ] **Live Trading** - Connect to broker APIs
 - [ ] **Strategy Builder** - No-code strategy creation

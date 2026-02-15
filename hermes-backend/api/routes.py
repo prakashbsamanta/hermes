@@ -12,13 +12,16 @@ if parent_dir not in sys.path:
 
 from services.market_data_service import MarketDataService  # noqa: E402
 from services.backtest_service import BacktestService  # noqa: E402
-from .models import BacktestRequest, BacktestResponse  # noqa: E402
+from services.scanner_service import ScannerService  # noqa: E402
+from .models import BacktestRequest, BacktestResponse, ScanRequest, ScanResponse, StorageSettingsUpdate  # noqa: E402
+from hermes_data.config import get_settings  # noqa: E402
 
 router = APIRouter()
 
 # Lazy service initialization to allow mocking in tests
 _market_data_service = None
 _backtest_service = None
+_scanner_service = None
 
 
 def get_market_data_service() -> MarketDataService:
@@ -69,3 +72,73 @@ async def run_backtest(request: BacktestRequest):
     except Exception as e:
         logging.error(f"Backtest execution failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_scanner_service() -> ScannerService:
+    """Get or create the ScannerService singleton."""
+    global _scanner_service
+    if _scanner_service is None:
+        _scanner_service = ScannerService(get_backtest_service())
+    return _scanner_service
+
+
+@router.post("/scan", response_model=ScanResponse)
+async def run_scan(request: ScanRequest):
+    try:
+        return await get_scanner_service().scan(request)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.error(f"Scan execution failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/settings/storage")
+async def get_storage_provider():
+    """Get current storage provider configuration."""
+    return {"provider": os.environ.get("HERMES_STORAGE_PROVIDER", "local")}
+
+
+@router.post("/settings/storage")
+async def update_storage_provider(settings: StorageSettingsUpdate):
+    """Update storage provider and reload services."""
+    start_provider = os.environ.get("HERMES_STORAGE_PROVIDER", "local")
+    
+    if settings.provider not in ["local", "cloudflare_r2", "oracle_object_storage"]:
+        raise HTTPException(status_code=400, detail=f"Invalid provider: {settings.provider}")
+    
+    # Update environment variable for the process
+    os.environ["HERMES_STORAGE_PROVIDER"] = settings.provider
+    logging.info(f"Switching storage provider: {start_provider} -> {settings.provider}")
+    
+    try:
+        # Clear DataSettings cache
+        get_settings.cache_clear()
+        
+        # Reset singletons to force recreation with new settings
+        global _market_data_service, _backtest_service, _scanner_service
+        _market_data_service = None
+        _backtest_service = None
+        _scanner_service = None
+        
+        # Validate connection by attempting to list instruments
+        svc = get_market_data_service()
+        instruments = svc.list_instruments()
+        
+        return {
+            "status": "success",
+            "provider": settings.provider,
+            "message": f"Switched to {settings.provider}",
+            "instrument_count": len(instruments)
+        }
+    except Exception as e:
+        # Revert on failure
+        logging.error(f"Failed to switch provider: {e}")
+        os.environ["HERMES_STORAGE_PROVIDER"] = start_provider
+        get_settings.cache_clear()
+        _market_data_service = None # Reset again to be safe
+        
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to switch provider: {str(e)}. Reverted to {start_provider}."
+        )

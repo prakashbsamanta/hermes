@@ -169,15 +169,7 @@ export function StrategyConfigPanel({
     [strategyName],
   );
 
-  // Local state to handle input changes before applying?
-  // For now, let's just use the parent's state (controlled component)
-  // OR local state and sync up.
-  // Given the need for immediate feedback or explicit "Run",
-  // usually we bind directly but only Run backtest on button click.
-
-  // However, we need to initialize defaults when strategy changes.
   useEffect(() => {
-    // If currentParams are empty or don't match the strategy schema roughly, reset to defaults
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const defaults: Record<string, any> = {};
     let needsUpdate = false;
@@ -190,10 +182,6 @@ export function StrategyConfigPanel({
     });
 
     if (needsUpdate || Object.keys(currentParams).length === 0) {
-      // We might want to preserve overlapping keys if they make sense, but usually safer to reset
-      // merging defaults with current params where keys exist
-      // const newParams = { ...defaults, ...currentParams };
-      // actually, better to just enforce defaults for missing keys
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const finalParams: Record<string, any> = {};
       config.forEach((p) => {
@@ -203,7 +191,6 @@ export function StrategyConfigPanel({
             : p.defaultValue;
       });
 
-      // Only fire if different to prevent loops
       if (JSON.stringify(finalParams) !== JSON.stringify(currentParams)) {
         onParamsChange(finalParams);
       }
@@ -220,7 +207,7 @@ export function StrategyConfigPanel({
 
   if (config.length === 0) {
     return (
-      <Card className="h-full border-l rounded-none border-y-0 border-r-0 shadow-none bg-card/50">
+      <Card className="h-full border-l rounded-none border-y-0 border-r-0 shadow-none bg-card/50 w-full">
         <CardHeader>
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
             <SlidersHorizontal size={16} /> Configuration
@@ -236,7 +223,7 @@ export function StrategyConfigPanel({
   }
 
   return (
-    <Card className="h-full border-l rounded-none border-y-0 border-r-0 shadow-none bg-card/30 backdrop-blur-sm w-[300px] flex flex-col">
+    <Card className="h-full border-l rounded-none border-y-0 border-r-0 shadow-none bg-card/30 backdrop-blur-sm w-full flex flex-col">
       <CardHeader className="pb-3 px-4 pt-4 shrink-0">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <SlidersHorizontal size={16} />
@@ -254,9 +241,9 @@ export function StrategyConfigPanel({
                 >
                   {param.label}
                 </Label>
-                <span className="font-mono text-xs text-foreground bg-accent/50 px-1.5 py-0.5 rounded">
+                <div className="font-mono text-xs text-foreground bg-accent/50 px-1.5 py-0.5 rounded min-w-[30px] text-right">
                   {currentParams[param.key]}
-                </span>
+                </div>
               </div>
 
               {param.type === "number" && (
@@ -274,7 +261,6 @@ export function StrategyConfigPanel({
                     }
                     className="w-full"
                   />
-                  {/* Optional: Number Input fallback for precision */}
                 </div>
               )}
 
@@ -305,7 +291,6 @@ export function StrategyConfigPanel({
           size="sm"
           className="w-full gap-2 text-xs"
           onClick={() => {
-            // Reset to defaults
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const defaults: Record<string, any> = {};
             config.forEach((p) => (defaults[p.key] = p.defaultValue));

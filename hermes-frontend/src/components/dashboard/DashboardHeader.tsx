@@ -8,9 +8,26 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdvancedSettingsDialog } from "./AdvancedSettingsDialog";
+import { AssetSelector } from "./AssetSelector";
+import { DateInput } from "@/components/ui/date-input";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface DashboardHeaderProps {
   strategies: string[];
@@ -18,8 +35,8 @@ interface DashboardHeaderProps {
   onStrategyChange: (val: string) => void;
 
   instruments: string[];
-  selectedSymbol: string;
-  onSymbolChange: (val: string) => void;
+  selectedAssets: string[];
+  onAssetsChange: (val: string[]) => void;
 
   onRunBacktest: () => void;
   isRunning: boolean;
@@ -27,7 +44,6 @@ interface DashboardHeaderProps {
   mode: "vector" | "event";
   onModeChange: (val: "vector" | "event") => void;
 
-  // Phase 5: Polish
   start_date: string | undefined;
   setStartDate: (val: string) => void;
   end_date: string | undefined;
@@ -39,18 +55,12 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({
-  strategies = [
-    "SMAStrategy",
-    "RSIStrategy",
-    "BollingerBandsStrategy",
-    "MACDStrategy",
-    "MTFTrendFollowingStrategy",
-  ],
+  strategies = [],
   selectedStrategy,
   onStrategyChange,
   instruments,
-  selectedSymbol,
-  onSymbolChange,
+  selectedAssets = [],
+  onAssetsChange,
   onRunBacktest,
   isRunning,
   mode = "vector",
@@ -64,6 +74,8 @@ export function DashboardHeader({
   commission,
   setCommission,
 }: DashboardHeaderProps) {
+  const [openStrategy, setOpenStrategy] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -73,7 +85,7 @@ export function DashboardHeader({
       <Card className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 bg-surface border-border shadow-sm">
         {/* Title Section */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             Backtest Configuration
           </h1>
           <p className="text-xs text-muted-foreground font-mono">
@@ -83,78 +95,95 @@ export function DashboardHeader({
 
         {/* Controls Section */}
         <div className="flex flex-wrap items-end gap-4">
-          {/* Strategy Selector */}
+          {/* Strategy Selector (Searchable) */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground font-mono uppercase">
               Strategy
             </Label>
-            <Select value={selectedStrategy} onValueChange={onStrategyChange}>
-              <SelectTrigger className="w-[180px] bg-background">
-                <SelectValue placeholder="Select Strategy" />
-              </SelectTrigger>
-              <SelectContent>
-                {strategies.map((strat) => (
-                  <SelectItem key={strat} value={strat}>
-                    {strat.replace("Strategy", "")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={openStrategy} onOpenChange={setOpenStrategy}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openStrategy}
+                  className="w-[200px] justify-between text-xs h-9 px-3"
+                >
+                  {selectedStrategy
+                    ? strategies
+                        .find((s) => s === selectedStrategy)
+                        ?.replace("Strategy", "")
+                    : "Select strategy..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search strategy..." />
+                  <CommandList>
+                    <CommandEmpty>No strategy found.</CommandEmpty>
+                    <CommandGroup>
+                      {strategies.map((strat) => (
+                        <CommandItem
+                          key={strat}
+                          value={strat}
+                          onSelect={(currentValue) => {
+                            onStrategyChange(
+                              currentValue === selectedStrategy
+                                ? ""
+                                : currentValue,
+                            );
+                            setOpenStrategy(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedStrategy === strat
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {strat.replace("Strategy", "")}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          {/* Symbol Selector */}
+          {/* Asset Selector (Multi) */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground font-mono uppercase">
-              Asset
+              Assets {selectedAssets.length > 0 && `(${selectedAssets.length})`}
             </Label>
-            {instruments.length > 0 ? (
-              <Select value={selectedSymbol} onValueChange={onSymbolChange}>
-                <SelectTrigger className="w-[140px] bg-background">
-                  <SelectValue placeholder="Symbol" />
-                </SelectTrigger>
-                <SelectContent>
-                  {instruments.map((inst) => (
-                    <SelectItem key={inst} value={inst}>
-                      {inst}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                value={selectedSymbol}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onSymbolChange(e.target.value)
-                }
-                className="w-[140px] bg-background"
-                placeholder="Symbol"
-              />
-            )}
+            <AssetSelector
+              assets={instruments}
+              selectedAssets={selectedAssets}
+              onChange={onAssetsChange}
+            />
           </div>
 
-          {/* Date Controls */}
-          <div className="flex flex-col gap-1.5">
+          {/* Date Controls (New DateInput) */}
+          <div className="flex flex-col gap-1.5 w-[140px]">
             <Label className="text-xs text-muted-foreground font-mono uppercase">
               Start Date
             </Label>
-            <Input
-              aria-label="Start Date"
-              type="date"
-              className="w-[130px] bg-background text-xs"
-              value={start_date || ""}
-              onChange={(e) => setStartDate(e.target.value)}
+            <DateInput
+              value={start_date}
+              onChange={setStartDate}
+              placeholder="dd/mm/yyyy"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 w-[140px]">
             <Label className="text-xs text-muted-foreground font-mono uppercase">
               End Date
             </Label>
-            <Input
-              aria-label="End Date"
-              type="date"
-              className="w-[130px] bg-background text-xs"
-              value={end_date || ""}
-              onChange={(e) => setEndDate(e.target.value)}
+            <DateInput
+              value={end_date}
+              onChange={setEndDate}
+              placeholder="dd/mm/yyyy"
             />
           </div>
 
@@ -167,7 +196,7 @@ export function DashboardHeader({
               value={mode}
               onValueChange={(val) => onModeChange(val as "vector" | "event")}
             >
-              <SelectTrigger className="w-[140px] bg-background">
+              <SelectTrigger className="w-[120px] bg-background h-9 text-xs">
                 <SelectValue placeholder="Mode" />
               </SelectTrigger>
               <SelectContent>
@@ -182,7 +211,7 @@ export function DashboardHeader({
             <Button
               onClick={onRunBacktest}
               disabled={isRunning}
-              className="w-[140px] font-semibold tracking-wide shadow-lg shadow-primary/20"
+              className="w-[140px] font-semibold tracking-wide shadow-lg shadow-primary/20 h-9"
             >
               {isRunning ? "EXECUTING" : "RUN BACKTEST"}
             </Button>

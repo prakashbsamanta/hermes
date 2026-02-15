@@ -26,6 +26,19 @@ class DataSettings(BaseSettings):
     # Registry settings
     registry_enabled: bool = True
 
+    # Cloudflare R2 Credentials
+    r2_account_id: Optional[str] = None
+    r2_access_key_id: Optional[str] = None
+    r2_secret_access_key: Optional[str] = None
+    r2_bucket_name: str = "hermes-market-data"
+
+    # Oracle Object Storage Credentials
+    oci_namespace: Optional[str] = None
+    oci_region: Optional[str] = None
+    oci_access_key_id: Optional[str] = None
+    oci_secret_access_key: Optional[str] = None
+    oci_bucket_name: str = "hermes-market-data"
+
     model_config = {
         "env_prefix": "HERMES_",
         "env_file": str(Path(__file__).parents[3] / ".env"),

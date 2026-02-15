@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install hermes-data package first (for better caching)
 COPY hermes-data /tmp/hermes-data
-RUN pip install --no-cache-dir /tmp/hermes-data && rm -rf /tmp/hermes-data
+RUN pip install --no-cache-dir "/tmp/hermes-data[cloud]" && rm -rf /tmp/hermes-data
 
 # Install backend dependencies
 COPY hermes-backend/requirements.txt .

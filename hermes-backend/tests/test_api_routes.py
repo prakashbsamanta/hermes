@@ -15,9 +15,11 @@ def reset_service_singletons():
     import api.routes as routes_module
     routes_module._market_data_service = None
     routes_module._backtest_service = None
+    routes_module._scanner_service = None
     yield
     routes_module._market_data_service = None
     routes_module._backtest_service = None
+    routes_module._scanner_service = None
 
 
 def test_health_check():

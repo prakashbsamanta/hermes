@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -125,3 +126,38 @@ class DataLoadLog(Base):
 
     def __repr__(self) -> str:
         return f"<DataLoadLog(symbol='{self.symbol}', status='{self.status}')>"
+
+
+class ScanResultCache(Base):
+    """Cached scan results — one row per (symbol, strategy, params_hash)."""
+
+    __tablename__ = "scan_results"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(50), nullable=False)
+    strategy = Column(String(100), nullable=False)
+    params_hash = Column(String(64), nullable=False)
+    mode = Column(String(10), default="vector")
+
+    # Result Data
+    metrics = Column(JSON, nullable=False)
+    signal_count = Column(Integer, default=0)
+    last_signal = Column(String(10), nullable=True)
+    last_signal_time = Column(Integer, nullable=True)
+
+    # Cache Management
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    scan_time_ms = Column(Integer, nullable=True)
+
+    # Status
+    status = Column(String(20), default="success")
+    error_message = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_scan_results_lookup", "symbol", "strategy", "params_hash"),
+        Index("ix_scan_results_expires", "expires_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ScanResultCache(symbol='{self.symbol}', strategy='{self.strategy}')>"
