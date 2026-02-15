@@ -4,7 +4,6 @@ Uses Oracle's S3 Compatibility API with Customer Secret Keys for authentication.
 Endpoint format: https://{namespace}.compat.objectstorage.{region}.oraclecloud.com
 """
 
-import io
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,6 +44,7 @@ class OracleObjectStorageSink(DataSink):
         secret_access_key: str,
         bucket_name: str,
         prefix: str = "minute",
+        compression: str = "zstd",
     ):
         """Initialize the Oracle Object Storage sink.
 
@@ -55,7 +55,10 @@ class OracleObjectStorageSink(DataSink):
             secret_access_key: Customer Secret Key Secret Access Key
             bucket_name: OCI Object Storage bucket name
             prefix: Object key prefix (e.g., "minute" for minute data)
+            compression: Parquet compression codec (default: zstd)
         """
+        super().__init__(compression=compression)
+
         try:
             import boto3
             from botocore.config import Config
@@ -110,18 +113,12 @@ class OracleObjectStorageSink(DataSink):
         """
         key = self._get_key(symbol)
 
-        # If object exists, merge with new data
+        # Merge with existing data if present
         existing_df = self.read(symbol)
-        if existing_df is not None:
-            df = pl.concat([existing_df, df])
+        df = self._merge_and_deduplicate(df, existing_df)
 
-        # Deduplicate and sort
-        df = df.unique(subset=["timestamp"]).sort("timestamp")
-
-        # Write to buffer and upload
-        buffer = io.BytesIO()
-        df.write_parquet(buffer)
-        body = buffer.getvalue()
+        # Serialize to compressed Parquet and upload
+        body = self._to_parquet_bytes(df)
 
         # Oracle OCI S3-compatible API requires explicit Content-Length
         self._client.put_object(
@@ -142,7 +139,7 @@ class OracleObjectStorageSink(DataSink):
         try:
             response = self._client.get_object(Bucket=self.bucket_name, Key=key)
             data = response["Body"].read()
-            return pl.read_parquet(io.BytesIO(data))
+            return self._from_parquet_bytes(data)
         except self._client.exceptions.NoSuchKey:
             return None
         except Exception as e:
@@ -177,23 +174,3 @@ class OracleObjectStorageSink(DataSink):
                     symbols.append(symbol)
 
         return sorted(symbols)
-
-    def get_last_timestamp(self, symbol: str) -> str | None:
-        """Get the last timestamp for a symbol (for resume logic).
-
-        Returns:
-            ISO format timestamp string, or None if not found
-        """
-        df = self.read(symbol)
-        if df is None or df.is_empty():
-            return None
-
-        last_ts = df.select(pl.col("timestamp").max()).item()
-        if last_ts is None:
-            return None
-
-        # Handle timezone-aware timestamps
-        if hasattr(last_ts, "tzinfo") and last_ts.tzinfo is not None:
-            last_ts = last_ts.replace(tzinfo=None)
-
-        return str(last_ts.isoformat())

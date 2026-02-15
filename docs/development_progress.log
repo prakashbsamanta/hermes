@@ -1,0 +1,37 @@
+[2026-01-31 11:25:00] [SUCCESS] [HERMES] Refactored Backend/Frontend, Implemented Data Guards & Tests (96% Coverage), Pushed to Main.
+[2026-01-31 18:14:00] [SUCCESS] [UX/BACKEND] Implemented Pure Data Mode, fixed NameErrors in backtest route, improved test coverage to 92%, fixed frontend linting, and pushed changes to main.
+[2026-02-01 11:30:00] [SUCCESS] [FRONTEND] Fixed ChartComponent rendering issue where charts were invisible by correctly attaching the lightweight-charts reference to the designated container.
+[2026-02-01 12:05:00] [SUCCESS] [UI REFACTOR] Completed full refactor to Shadcn UI.
+[2026-02-01 12:05:00] [SUCCESS] [SETTINGS] Implemented Settings Dialog with Abyss/Glacier theme switching.
+[2026-02-01 12:05:00] [SUCCESS] [CHART CONTROLS] Refactored chart controls to use Shadcn components.
+[2026-02-01 12:05:00] [SUCCESS] [CLEANUP] Removed obsolete App.css and fixed path aliases.
+[2026-02-01 15:35:00] [SUCCESS] [CHART UX] Implemented Searchable Combobox for Symbols and Indicators.
+[2026-02-01 15:35:00] [SUCCESS] [FULLSCREEN] Fixed Fullscreen mode to include Chart Controls.
+[2026-02-01 15:35:00] [SUCCESS] [BRANDING] Removed TradingView attribution logo via CSS.
+[2026-02-01 16:15:00] [SUCCESS] [NAVIGATION] Implemented Client-Side Routing (Market, Backtest, Portfolio, Settings).
+[2026-02-01 16:15:00] [SUCCESS] [PAGES] Created dedicated page components for each view.
+[2026-02-01 16:15:00] [SUCCESS] [SIDEBAR] Added AppNavigation sidebar for persistent navigation.
+[2026-02-01 16:15:00] [SUCCESS] [REFACTOR] Split App.tsx monolithic logic into modular pages.
+[2026-02-01 16:25:00] [SUCCESS] [CHART UX] Refined Buy/Sell Signal markers (removed text, added hover tooltip).
+[2026-02-01 16:50:00] [SUCCESS] [BACKTEST] Implemented Dynamic Strategy Configuration Panel (Frontend).
+[2026-02-01 16:50:00] [SUCCESS] [BACKTEST] Verified Parameter Passing to Backend Engine.
+[2026-02-01 22:30:00] [SUCCESS] [DEPLOY] Pushed Strategy Intelligence Module and Chart UX Improvements to main.
+
+[2026-02-06 23:55:00] [SUCCESS] [BACKTEST] Implemented Event-Driven Backtesting, Realistic Execution (Slippage/Commission), and Date Filtering.
+[2026-02-07 12:43:30] [QUALITY] Enforced comprehensive quality gates, fixed backend issues, and boosted frontend test coverage to >90% lines.
+[2026-02-07T14:18:00+05:30] [COMPLETED] [DATA_LAYER_ANALYSIS] Completed comprehensive data layer architecture analysis and created recommendations document with migration strategy for hermes-data package separation
+[2026-02-07T19:05:00+05:30] [COMPLETED] [DATA_LAYER_PHASE1] Phase 1 complete: Created hermes-data package with LocalFileProvider, MemoryCache, DataService. Updated MarketDataService and BacktestService to use new data layer. All 22 backend tests pass (95% coverage). Added Podman configuration.
+[2026-02-07T19:35:00+05:30] [COMPLETED] [DATA_LAYER_PHASE2] Phase 2 complete: Added PostgreSQL-based registry with Instrument, DataAvailability, and DataLoadLog models. Updated DataService with registry integration, search, and logging. Updated podman-compose with PostgreSQL. All 58 tests pass (36 hermes-data + 22 hermes-backend).
+[2026-02-07T20:58:00+05:30] [DOCS] Added Database Access instructions to README.md.
+[2026-02-07T21:10:00+05:30] [COMPLETED] [PRE_COMMIT_FIXES] Fixed 22 linting issues across hermes-backend, hermes-data, and hermes-frontend. Updated eslint config to ignore coverage folder. All tests pass.
+[2026-02-07T21:45:00+05:30] [COMPLETED] [DATA_LAYER] Pushed hermes-data package with registry, 92% coverage, fixed all linting issues. Commit: cceb96a
+[2026-02-07T22:35:00+05:30] [COMPLETED] [CI] Fixed CI failures - added hermes-data to workflow, lazy service init, 96% backend coverage. Commit: e6c5956
+[2026-02-07T22:45:00+05:30] [COMPLETED] [DOCS] Created comprehensive documentation suite - architecture.md, project_status.md, ROADMAP.md, API_REFERENCE.md, GETTING_STARTED.md. Commit: 4e03a4e
+[2026-02-08T11:05:00+05:30] [COMPLETED] [DOCS] Updated AI_CODER_INSTRUCTIONS.md to include mandatory documentation update rules.
+[2026-02-08T12:50:00+05:30] [COMPLETE] [hermes-ingest] Created new hermes-ingest package for data ingestion. Added ZerodhaSource, LocalFileSink, IngestOrchestrator, CLI. 53 tests passing at 82% coverage. Removed deprecated data_seeder.py from hermes-backend.
+[2026-02-08T13:50:00+05:30] [COMPLETE] [DATA_STORAGE_REFACTOR] Restructured data storage: moved parquet files from hermes-backend/data to shared data/ directory. Added CloudflareR2Sink with factory pattern for easy local/cloud switching. Created CLOUDFLARE_R2_SETUP.md guide. Updated run_checks.sh with hermes-ingest checks. All 72 tests passing at 92% coverage. Commit: 648e5c8
+[2026-02-09T15:20:00+05:30] [SUCCESS] [hermes-ingest] Implemented production-grade improvements: incremental writes via async generator, chunk-level checkpoint/resume, rich progress bars, and TaskGroup-based async concurrency. All 76 tests pass.
+[2026-02-15T13:20:00+05:30] [COMPLETE] [hermes-ingest] Added Oracle Cloud Object Storage sink as third storage option alongside Local and Cloudflare R2. Implemented OracleObjectStorageSink using OCI S3 Compatibility API with Customer Secret Keys. Updated factory, config, tests (97 passing, 90.67% coverage), docs (ORACLE_OBJECT_STORAGE_SETUP.md), README, and .env.example.
+[2026-02-15T13:50:00+05:30] [BUGFIX] [hermes-ingest] Fixed MissingContentLength error in Oracle OCI sink - OCI S3 API requires explicit ContentLength header unlike AWS/R2. Fixed list-symbols CLI to use sink factory instead of hardcoded LocalFileSink. Enhanced config CLI with cloud-specific fields. All 100 tests passing at 90.92% coverage.
+[2026-02-15T15:45:00+05:30] [CLEANUP] [hermes] Final codebase audit and cleanup: fixed 3 ruff lint errors (E501), removed dead test code, updated architecture.md with Oracle/R2 sinks and 91% coverage, fixed README threshold, added .vscode/ to .gitignore.
+[2026-02-15T16:10:00+05:30] [REFACTOR] [hermes-ingest] Centralized 4 duplicated sink patterns in DataSink base class: zstd Parquet compression (_to_parquet_bytes/_from_parquet_bytes), merge+deduplicate+sort (_merge_and_deduplicate), and get_last_timestamp. Added configurable compression setting. Simplified all 3 sinks (~50 lines removed). 100 tests, 91.41% coverage.

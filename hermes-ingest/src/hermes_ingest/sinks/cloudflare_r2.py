@@ -1,6 +1,5 @@
 """Cloudflare R2 data sink for Parquet files (S3-compatible)."""
 
-import io
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -31,6 +30,7 @@ class CloudflareR2Sink(DataSink):
         secret_access_key: str,
         bucket_name: str,
         prefix: str = "minute",
+        compression: str = "zstd",
     ):
         """Initialize the Cloudflare R2 sink.
 
@@ -40,7 +40,10 @@ class CloudflareR2Sink(DataSink):
             secret_access_key: R2 API secret access key
             bucket_name: R2 bucket name
             prefix: Object key prefix (e.g., "minute" for minute data)
+            compression: Parquet compression codec (default: zstd)
         """
+        super().__init__(compression=compression)
+
         try:
             import boto3
             from botocore.config import Config
@@ -83,23 +86,17 @@ class CloudflareR2Sink(DataSink):
         """
         key = self._get_key(symbol)
 
-        # If object exists, merge with new data
+        # Merge with existing data if present
         existing_df = self.read(symbol)
-        if existing_df is not None:
-            df = pl.concat([existing_df, df])
+        df = self._merge_and_deduplicate(df, existing_df)
 
-        # Deduplicate and sort
-        df = df.unique(subset=["timestamp"]).sort("timestamp")
-
-        # Write to buffer and upload
-        buffer = io.BytesIO()
-        df.write_parquet(buffer)
-        buffer.seek(0)
+        # Serialize to compressed Parquet and upload
+        body = self._to_parquet_bytes(df)
 
         self._client.put_object(
             Bucket=self.bucket_name,
             Key=key,
-            Body=buffer.getvalue(),
+            Body=body,
             ContentType="application/octet-stream",
         )
 
@@ -113,7 +110,7 @@ class CloudflareR2Sink(DataSink):
         try:
             response = self._client.get_object(Bucket=self.bucket_name, Key=key)
             data = response["Body"].read()
-            return pl.read_parquet(io.BytesIO(data))
+            return self._from_parquet_bytes(data)
         except self._client.exceptions.NoSuchKey:
             return None
         except Exception as e:
@@ -148,23 +145,3 @@ class CloudflareR2Sink(DataSink):
                     symbols.append(symbol)
 
         return sorted(symbols)
-
-    def get_last_timestamp(self, symbol: str) -> str | None:
-        """Get the last timestamp for a symbol (for resume logic).
-
-        Returns:
-            ISO format timestamp string, or None if not found
-        """
-        df = self.read(symbol)
-        if df is None or df.is_empty():
-            return None
-
-        last_ts = df.select(pl.col("timestamp").max()).item()
-        if last_ts is None:
-            return None
-
-        # Handle timezone-aware timestamps
-        if hasattr(last_ts, "tzinfo") and last_ts.tzinfo is not None:
-            last_ts = last_ts.replace(tzinfo=None)
-
-        return str(last_ts.isoformat())

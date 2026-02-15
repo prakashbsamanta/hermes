@@ -32,6 +32,9 @@ class IngestSettings(BaseSettings):
     oci_bucket_name: str = "hermes-market-data"
     oci_prefix: str = "minute"  # Object prefix in bucket
 
+    # Parquet compression
+    compression: str = "zstd"  # zstd | snappy | lz4 | gzip | uncompressed
+
     # Rate limiting
     rate_limit_per_sec: float = 2.5
     max_concurrency: int = 5

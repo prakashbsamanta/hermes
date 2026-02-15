@@ -34,7 +34,10 @@ def create_sink(settings: IngestSettings | None = None) -> DataSink:
         settings = get_settings()
 
     if settings.sink_type == "local":
-        return LocalFileSink(settings.get_sink_path())
+        return LocalFileSink(
+            settings.get_sink_path(),
+            compression=settings.compression,
+        )
 
     elif settings.sink_type == "cloudflare_r2":
         # Validate required R2 settings
@@ -63,6 +66,7 @@ def create_sink(settings: IngestSettings | None = None) -> DataSink:
             secret_access_key=settings.r2_secret_access_key,
             bucket_name=settings.r2_bucket_name,
             prefix=settings.r2_prefix,
+            compression=settings.compression,
         )
 
     elif settings.sink_type == "oracle_object_storage":
@@ -95,6 +99,7 @@ def create_sink(settings: IngestSettings | None = None) -> DataSink:
             secret_access_key=settings.oci_secret_access_key,
             bucket_name=settings.oci_bucket_name,
             prefix=settings.oci_prefix,
+            compression=settings.compression,
         )
 
     else:

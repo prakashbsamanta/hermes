@@ -17,12 +17,14 @@ class LocalFileSink(DataSink):
     providing atomic writes and smart resume functionality.
     """
 
-    def __init__(self, data_dir: str | Path):
+    def __init__(self, data_dir: str | Path, compression: str = "zstd"):
         """Initialize the local file sink.
 
         Args:
             data_dir: Path to directory for storing parquet files
+            compression: Parquet compression codec (default: zstd)
         """
+        super().__init__(compression=compression)
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"LocalFileSink initialized at: {self.data_dir}")
@@ -38,16 +40,12 @@ class LocalFileSink(DataSink):
         """
         output_path = self._get_path(symbol)
 
-        # If file exists, merge with new data
-        if output_path.exists():
-            existing_df = pl.read_parquet(output_path)
-            df = pl.concat([existing_df, df])
+        # Merge with existing data if present
+        existing_df = self.read(symbol)
+        df = self._merge_and_deduplicate(df, existing_df)
 
-        # Deduplicate and sort
-        df = df.unique(subset=["timestamp"]).sort("timestamp")
-
-        # Write atomically
-        df.write_parquet(output_path)
+        # Write with compression
+        df.write_parquet(output_path, compression=self.compression)
         logger.info(f"[{symbol}] Wrote {len(df)} rows to {output_path}")
 
         return output_path
@@ -71,23 +69,3 @@ class LocalFileSink(DataSink):
     def list_symbols(self) -> list[str]:
         """List all available symbols in the sink."""
         return sorted([f.stem for f in self.data_dir.glob("*.parquet")])
-
-    def get_last_timestamp(self, symbol: str) -> str | None:
-        """Get the last timestamp for a symbol (for resume logic).
-
-        Returns:
-            ISO format timestamp string, or None if not found
-        """
-        df = self.read(symbol)
-        if df is None or df.is_empty():
-            return None
-
-        last_ts = df.select(pl.col("timestamp").max()).item()
-        if last_ts is None:
-            return None
-
-        # Handle timezone-aware timestamps
-        if hasattr(last_ts, "tzinfo") and last_ts.tzinfo is not None:
-            last_ts = last_ts.replace(tzinfo=None)
-
-        return str(last_ts.isoformat())
