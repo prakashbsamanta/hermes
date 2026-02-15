@@ -55,6 +55,28 @@ vi.mock("@/components/backtest/StrategyConfigPanel", () => ({
   StrategyParamInput: () => <div>Param Input</div>,
 }));
 
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => <div {...(props as object)}>{children}</div>,
+    span: ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => <span {...(props as object)}>{children}</span>,
+  },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
 // Import hook after mocking
 import { useBacktest } from "@/hooks/useBacktest";
 
