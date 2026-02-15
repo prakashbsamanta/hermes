@@ -73,12 +73,16 @@ class ProgressTracker:
                 MofNCompleteColumn(),
                 TimeElapsedColumn(),
                 TextColumn("•"),
+                TextColumn("[cyan]Candles: {task.fields[candles]}[/cyan]"),
+                TextColumn("•"),
                 TimeRemainingColumn(),
                 refresh_per_second=4,
             )
             self._progress.start()
             self._overall_task = self._progress.add_task(
-                "[cyan]Overall Progress", total=total_symbols
+                "[cyan]Overall Progress",
+                total=total_symbols,
+                candles=0,
             )
         else:
             logger.info(f"Starting sync for {total_symbols} symbols")
@@ -100,6 +104,7 @@ class ProgressTracker:
             task_id = self._progress.add_task(
                 f"[yellow]{symbol}",
                 total=total_chunks,
+                candles=0,
             )
             self._symbol_tasks[symbol] = task_id
 
@@ -117,7 +122,11 @@ class ProgressTracker:
             prog.rows_written += rows_written
 
         if self.show_progress and self._progress and symbol in self._symbol_tasks:
-            self._progress.update(self._symbol_tasks[symbol], advance=chunks_done)
+            self._progress.update(
+                self._symbol_tasks[symbol],
+                advance=chunks_done,
+                candles=self._symbol_progress[symbol].rows_written,
+            )
 
     def complete_symbol(self, symbol: str, success: bool = True) -> None:
         """Mark a symbol as complete.
