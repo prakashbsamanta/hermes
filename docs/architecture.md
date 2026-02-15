@@ -196,18 +196,22 @@ hermes/
 │   │   └── hooks/            # React Query Hooks
 │   └── Containerfile         # Docker/Podman build
 │
-├── hermes-ingest/            # Data Ingestion Package (NEW)
+├── hermes-ingest/            # Data Ingestion Package
 │   ├── src/hermes_ingest/
 │   │   ├── sources/          # Data Sources (Brokers)
 │   │   │   ├── base.py       # Abstract DataSource Interface
 │   │   │   └── zerodha.py    # Zerodha Kite Adapter
 │   │   ├── sinks/            # Storage Destinations
 │   │   │   ├── base.py       # Abstract DataSink Interface
-│   │   │   └── local.py      # LocalFileSink (Parquet)
+│   │   │   ├── local.py      # LocalFileSink (Parquet)
+│   │   │   ├── cloudflare_r2.py  # CloudflareR2Sink (S3-compatible)
+│   │   │   ├── oracle_object_storage.py  # OracleObjectStorageSink (S3-compatible)
+│   │   │   └── factory.py    # Sink factory for easy switching
 │   │   ├── config.py         # Configuration (Environment Variables)
 │   │   ├── orchestrator.py   # Job Orchestration
+│   │   ├── progress.py       # Rich progress tracking
 │   │   └── cli.py            # CLI Entry Point (hermes-ingest)
-│   └── tests/                # Unit Tests (82% coverage)
+│   └── tests/                # Unit Tests (91% coverage)
 │
 ├── docs/                     # Documentation
 │   ├── architecture.md       # This file
@@ -567,8 +571,8 @@ The registry tracks metadata about instruments and data loads:
 │  ┌─────────────────────────────────────────────────────────────────┐  │
 │  │                      data_availability                           │  │
 │  │  id | instrument_id | timeframe | start_date | end_date | rows  │  │
-│  │  1  | 1             | 1m        | 2020-01-01 | 2024-12-31| 1.2M │  │
-│  │  2  | 2             | 1m        | 2020-01-01 | 2024-12-31| 1.1M │  │
+│  │  1  | 1             | 1m        | 2010-01-01 | 2024-12-31| 1.2M │  │
+│  │  2  | 2             | 1m        | 2010-01-01 | 2024-12-31| 1.1M │  │
 │  └─────────────────────────────────────────────────────────────────┘  │
 │                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────┐  │

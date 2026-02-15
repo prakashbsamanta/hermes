@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -106,9 +107,64 @@ class ZerodhaSource(DataSource):
         """Fetch OHLCV data for a symbol.
 
         Fetches in chunks to avoid API limits.
+
+        Note: This is a convenience wrapper. For production use with large date
+        ranges, prefer fetch_chunks() for incremental processing.
+        """
+        all_dfs: list[pl.DataFrame] = []
+
+        async for chunk_df, _, _ in self.fetch_chunks(symbol, token, start_date, end_date):
+            all_dfs.append(chunk_df)
+
+        if not all_dfs:
+            return None
+
+        return pl.concat(all_dfs)
+
+    def calculate_chunks(self, start_date: str, end_date: str) -> int:
+        """Calculate the number of chunks needed for a date range.
+
+        Useful for progress tracking.
+
+        Args:
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+
+        Returns:
+            Number of chunks that will be fetched
+        """
+        chunk_days = self._settings.chunk_days
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        total_days = (end_dt - start_dt).days
+        if total_days <= 0:
+            return 0
+
+        return (total_days + chunk_days - 1) // chunk_days
+
+    async def fetch_chunks(
+        self,
+        symbol: str,
+        token: int,
+        start_date: str,
+        end_date: str,
+    ) -> AsyncIterator[tuple[pl.DataFrame, str, str]]:
+        """Fetch OHLCV data in chunks as async iterator.
+
+        Yields chunks immediately as they're fetched for memory-efficient
+        incremental processing.
+
+        Args:
+            symbol: Instrument symbol
+            token: Instrument token
+            start_date: Start date YYYY-MM-DD
+            end_date: End date YYYY-MM-DD
+
+        Yields:
+            Tuples of (chunk_df, chunk_start_date, chunk_end_date)
         """
         session = await self._get_session()
-        all_candles: list[list[Any]] = []
         chunk_days = self._settings.chunk_days
 
         # Parse dates
@@ -122,25 +178,24 @@ class ZerodhaSource(DataSource):
             t_date = next_dt.strftime("%Y-%m-%d")
 
             candles = await self._fetch_chunk(session, token, f_date, t_date)
+
             if candles:
-                all_candles.extend(candles)
                 logger.info(f"[{symbol}] {f_date} -> {t_date}: Got {len(candles)} candles")
 
+                # Convert to DataFrame immediately
+                schema = ["timestamp", "open", "high", "low", "close", "volume", "oi"]
+                chunk_df = pl.DataFrame(candles, schema=schema, orient="row")
+
+                # Parse timestamp
+                chunk_df = chunk_df.with_columns(
+                    pl.col("timestamp").str.strptime(
+                        pl.Datetime, "%Y-%m-%dT%H:%M:%S%z", strict=False
+                    )
+                )
+
+                yield (chunk_df, f_date, t_date)
+
             current_dt = next_dt + timedelta(days=1)
-
-        if not all_candles:
-            return None
-
-        # Convert to DataFrame
-        schema = ["timestamp", "open", "high", "low", "close", "volume", "oi"]
-        df = pl.DataFrame(all_candles, schema=schema, orient="row")
-
-        # Parse timestamp
-        df = df.with_columns(
-            pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%z", strict=False)
-        )
-
-        return df
 
     async def _fetch_chunk(
         self,

@@ -14,7 +14,7 @@ class IngestSettings(BaseSettings):
     zerodha_user_id: str | None = None
 
     # Sink configuration
-    sink_type: str = "local"  # "local" | "cloudflare_r2"
+    sink_type: str = "local"  # "local" | "cloudflare_r2" | "oracle_object_storage"
     sink_path: str = "data/minute"  # For local sink (relative to project root or absolute)
 
     # Cloudflare R2 settings (optional - for cloud sink)
@@ -24,13 +24,21 @@ class IngestSettings(BaseSettings):
     r2_bucket_name: str = "hermes-market-data"
     r2_prefix: str = "minute"  # Object prefix in bucket
 
+    # Oracle Cloud Object Storage settings (optional - for cloud sink)
+    oci_namespace: str | None = None
+    oci_region: str | None = None
+    oci_access_key_id: str | None = None
+    oci_secret_access_key: str | None = None
+    oci_bucket_name: str = "hermes-market-data"
+    oci_prefix: str = "minute"  # Object prefix in bucket
+
     # Rate limiting
     rate_limit_per_sec: float = 2.5
     max_concurrency: int = 5
 
     # Chunk settings
     chunk_days: int = 60
-    start_date: str = "2020-01-01"
+    start_date: str = "2010-01-01"
 
     # Instrument file
     instrument_file: str = "data/instruments/NSE.csv"

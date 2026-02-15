@@ -5,16 +5,21 @@ import logging
 import sys
 
 import click
+from rich.console import Console
+from rich.table import Table
 
 from hermes_ingest.config import get_settings
 from hermes_ingest.orchestrator import IngestOrchestrator
+from hermes_ingest.progress import ProgressTracker
 
-# Configure logging
+# Configure logging - suppress when using rich progress
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
+
+console = Console()
 
 
 @click.group()
@@ -40,7 +45,14 @@ def main() -> None:
     default="zerodha",
     help="Data source",
 )
-def fetch(symbol: str, source: str) -> None:
+@click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    default=False,
+    help="Disable progress bars",
+)
+def fetch(symbol: str, source: str, quiet: bool) -> None:
     """Fetch data for a single symbol."""
     settings = get_settings()
 
@@ -49,7 +61,10 @@ def fetch(symbol: str, source: str) -> None:
         sys.exit(1)
 
     async def _fetch() -> bool:
-        async with IngestOrchestrator(settings=settings) as orchestrator:
+        # Create progress tracker
+        progress = ProgressTracker(show_progress=not quiet)
+
+        async with IngestOrchestrator(settings=settings, progress=progress) as orchestrator:
             # Get token for symbol
             instruments_df = orchestrator.source.list_instruments()
             matching = instruments_df.filter(
@@ -63,7 +78,9 @@ def fetch(symbol: str, source: str) -> None:
             row = matching.row(0, named=True)
             token = row["instrument_token"]
 
-            click.echo(f"Fetching {symbol} (token: {token})...")
+            if not quiet:
+                console.print(f"[bold blue]Fetching {symbol}[/] (token: {token})...")
+                progress.start(1)
 
             return await orchestrator.fetch_symbol(symbol.upper(), token)
 
@@ -77,9 +94,9 @@ def fetch(symbol: str, source: str) -> None:
         sys.exit(1)
 
     if success:
-        click.echo(f"✓ Successfully fetched {symbol}")
+        console.print(f"[bold green]✓ Successfully fetched {symbol}[/]")
     else:
-        click.echo(f"✗ Failed to fetch {symbol}", err=True)
+        console.print(f"[bold red]✗ Failed to fetch {symbol}[/]")
         sys.exit(1)
 
 
@@ -104,7 +121,14 @@ def fetch(symbol: str, source: str) -> None:
     default=5,
     help="Number of parallel downloads",
 )
-def sync(source: str, limit: int | None, concurrency: int) -> None:
+@click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    default=False,
+    help="Disable progress bars (logging only)",
+)
+def sync(source: str, limit: int | None, concurrency: int, quiet: bool) -> None:
     """Sync all instruments from a source."""
     settings = get_settings()
 
@@ -112,23 +136,46 @@ def sync(source: str, limit: int | None, concurrency: int) -> None:
         click.echo("Error: HERMES_ZERODHA_ENCTOKEN not set", err=True)
         sys.exit(1)
 
+    # Adjust logging for progress mode
+    if not quiet:
+        # Suppress verbose logging when using rich progress
+        logging.getLogger("hermes_ingest").setLevel(logging.WARNING)
+
     async def _sync() -> dict[str, bool]:
-        async with IngestOrchestrator(settings=settings) as orchestrator:
-            click.echo(f"Starting sync from {source}...")
-            if limit:
-                click.echo(f"  Limit: {limit} symbols")
-            click.echo(f"  Concurrency: {concurrency}")
+        # Create progress tracker
+        progress = ProgressTracker(show_progress=not quiet)
+
+        async with IngestOrchestrator(settings=settings, progress=progress) as orchestrator:
+            if not quiet:
+                console.print(f"[bold blue]Starting sync from {source}...[/]")
+                if limit:
+                    console.print(f"  Limit: {limit} symbols")
+                console.print(f"  Concurrency: {concurrency}")
 
             return await orchestrator.sync(limit=limit, concurrency=concurrency)
 
     # Run async sync
     results = asyncio.run(_sync())
 
-    # Summary
+    # Summary table
     success = sum(1 for v in results.values() if v)
     failed = len(results) - success
 
-    click.echo(f"\n✓ Completed: {success} succeeded, {failed} failed")
+    if not quiet:
+        console.print()  # Blank line after progress
+
+        # Create summary table
+        table = Table(title="Sync Summary")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+
+        table.add_row("Total Symbols", str(len(results)))
+        table.add_row("Succeeded", f"[green]{success}[/]")
+        table.add_row("Failed", f"[red]{failed}[/]" if failed > 0 else "0")
+
+        console.print(table)
+    else:
+        click.echo(f"\n✓ Completed: {success} succeeded, {failed} failed")
 
     if failed > 0:
         sys.exit(1)
@@ -136,21 +183,26 @@ def sync(source: str, limit: int | None, concurrency: int) -> None:
 
 @main.command()
 def list_symbols() -> None:
-    """List all available symbols in the sink."""
+    """List all available symbols in the configured sink."""
     settings = get_settings()
-    sink_path = settings.get_sink_path()
 
-    from hermes_ingest.sinks.local import LocalFileSink
+    from hermes_ingest.sinks.factory import create_sink
 
-    sink = LocalFileSink(sink_path)
+    try:
+        sink = create_sink(settings)
+    except Exception as e:
+        click.echo(f"Error creating sink: {e}", err=True)
+        sys.exit(1)
+
+    console.print(f"[dim]Sink: {type(sink).__name__} ({settings.sink_type})[/]")
     symbols = sink.list_symbols()
 
     if symbols:
-        click.echo(f"Found {len(symbols)} symbols:")
+        console.print(f"[bold]Found {len(symbols)} symbols:[/]")
         for sym in symbols:
-            click.echo(f"  {sym}")
+            console.print(f"  • {sym}")
     else:
-        click.echo("No symbols found in sink")
+        console.print("[yellow]No symbols found in sink[/]")
 
 
 @main.command()
@@ -158,15 +210,47 @@ def config() -> None:
     """Show current configuration."""
     settings = get_settings()
 
-    click.echo("Current configuration:")
-    click.echo(f"  Sink type: {settings.sink_type}")
-    click.echo(f"  Sink path: {settings.get_sink_path()}")
-    click.echo(f"  Instrument file: {settings.get_instrument_file()}")
-    click.echo(f"  Rate limit: {settings.rate_limit_per_sec}/sec")
-    click.echo(f"  Concurrency: {settings.max_concurrency}")
-    click.echo(f"  Chunk days: {settings.chunk_days}")
-    click.echo(f"  Start date: {settings.start_date}")
-    click.echo(f"  Zerodha token: {'set' if settings.zerodha_enctoken else 'not set'}")
+    table = Table(title="Current Configuration")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Sink type", f"[bold]{settings.sink_type}[/]")
+
+    if settings.sink_type == "local":
+        table.add_row("Sink path", str(settings.get_sink_path()))
+    elif settings.sink_type == "cloudflare_r2":
+        table.add_row("R2 Account ID", settings.r2_account_id or "[red]not set[/]")
+        r2_key = (
+            f"{settings.r2_access_key_id[:8]}..."
+            if settings.r2_access_key_id
+            else "[red]not set[/]"
+        )
+        table.add_row("R2 Access Key", r2_key)
+        table.add_row("R2 Bucket", settings.r2_bucket_name)
+        table.add_row("R2 Prefix", settings.r2_prefix)
+    elif settings.sink_type == "oracle_object_storage":
+        table.add_row("OCI Namespace", settings.oci_namespace or "[red]not set[/]")
+        table.add_row("OCI Region", settings.oci_region or "[red]not set[/]")
+        oci_key = (
+            f"{settings.oci_access_key_id[:8]}..."
+            if settings.oci_access_key_id
+            else "[red]not set[/]"
+        )
+        table.add_row("OCI Access Key", oci_key)
+        table.add_row("OCI Bucket", settings.oci_bucket_name)
+        table.add_row("OCI Prefix", settings.oci_prefix)
+
+    table.add_row("Instrument file", str(settings.get_instrument_file()))
+    table.add_row("Rate limit", f"{settings.rate_limit_per_sec}/sec")
+    table.add_row("Concurrency", str(settings.max_concurrency))
+    table.add_row("Chunk days", str(settings.chunk_days))
+    table.add_row("Start date", settings.start_date)
+    table.add_row(
+        "Zerodha token",
+        "[green]set[/]" if settings.zerodha_enctoken else "[red]not set[/]",
+    )
+
+    console.print(table)
 
 
 if __name__ == "__main__":

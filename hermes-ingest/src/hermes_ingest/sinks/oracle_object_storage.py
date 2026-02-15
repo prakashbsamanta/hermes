@@ -1,4 +1,8 @@
-"""Cloudflare R2 data sink for Parquet files (S3-compatible)."""
+"""Oracle Cloud Object Storage data sink for Parquet files (S3-compatible).
+
+Uses Oracle's S3 Compatibility API with Customer Secret Keys for authentication.
+Endpoint format: https://{namespace}.compat.objectstorage.{region}.oraclecloud.com
+"""
 
 import io
 import logging
@@ -15,30 +19,41 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CloudflareR2Sink(DataSink):
-    """Writes market data to Cloudflare R2 (S3-compatible storage).
+class OracleObjectStorageSink(DataSink):
+    """Writes market data to Oracle Cloud Object Storage (S3-compatible).
 
-    This sink implements the DataSink interface for cloud storage,
-    providing the same functionality as LocalFileSink but stored in R2.
+    This sink implements the DataSink interface for Oracle Cloud Infrastructure
+    Object Storage, using the S3 Compatibility API. It provides the same
+    functionality as LocalFileSink and CloudflareR2Sink but stored in OCI.
 
     Requires boto3 to be installed: pip install hermes-ingest[cloud]
+
+    Authentication uses Customer Secret Keys, which provide:
+    - Access Key ID
+    - Secret Access Key
+
+    The endpoint is constructed from:
+    - Namespace: unique tenancy identifier (found in OCI Console)
+    - Region: OCI region (e.g., 'ap-mumbai-1', 'us-ashburn-1')
     """
 
     def __init__(
         self,
-        account_id: str,
+        namespace: str,
+        region: str,
         access_key_id: str,
         secret_access_key: str,
         bucket_name: str,
         prefix: str = "minute",
     ):
-        """Initialize the Cloudflare R2 sink.
+        """Initialize the Oracle Object Storage sink.
 
         Args:
-            account_id: Cloudflare account ID
-            access_key_id: R2 API access key ID
-            secret_access_key: R2 API secret access key
-            bucket_name: R2 bucket name
+            namespace: OCI Object Storage namespace (unique tenancy identifier)
+            region: OCI region (e.g., 'ap-mumbai-1', 'us-ashburn-1')
+            access_key_id: Customer Secret Key Access Key ID
+            secret_access_key: Customer Secret Key Secret Access Key
+            bucket_name: OCI Object Storage bucket name
             prefix: Object key prefix (e.g., "minute" for minute data)
         """
         try:
@@ -46,19 +61,27 @@ class CloudflareR2Sink(DataSink):
             from botocore.config import Config
         except ImportError:
             raise ImportError(
-                "boto3 is required for R2 sink. Install with: pip install hermes-ingest[cloud]"
+                "boto3 is required for Oracle Object Storage sink. "
+                "Install with: pip install hermes-ingest[cloud]"
             ) from None
 
         self.bucket_name = bucket_name
         self.prefix = prefix
 
-        # Cloudflare R2 endpoint URL
-        endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com"
+        # Oracle OCI S3-compatible endpoint URL
+        endpoint_url = (
+            f"https://{namespace}.compat.objectstorage.{region}.oraclecloud.com"
+        )
 
-        # Configure boto3 with S3v4 signatures (required by R2)
+        # Configure boto3 for OCI S3 compatibility
+        # Oracle OCI requires Content-Length header and does NOT support
+        # chunked transfer encoding, so we disable it explicitly.
         boto_config = Config(
             signature_version="s3v4",
             retries={"max_attempts": 3, "mode": "standard"},
+            s3={"payload_signing_enabled": True},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
         )
 
         self._client: S3Client = boto3.client(
@@ -66,11 +89,15 @@ class CloudflareR2Sink(DataSink):
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
-            region_name="auto",  # R2 uses 'auto' region
+            region_name=region,
             config=boto_config,
         )
 
-        logger.info(f"CloudflareR2Sink initialized: bucket={bucket_name}, prefix={prefix}")
+        logger.info(
+            f"OracleObjectStorageSink initialized: "
+            f"namespace={namespace}, region={region}, "
+            f"bucket={bucket_name}, prefix={prefix}"
+        )
 
     def _get_key(self, symbol: str) -> str:
         """Get the object key for a symbol."""
@@ -94,20 +121,22 @@ class CloudflareR2Sink(DataSink):
         # Write to buffer and upload
         buffer = io.BytesIO()
         df.write_parquet(buffer)
-        buffer.seek(0)
+        body = buffer.getvalue()
 
+        # Oracle OCI S3-compatible API requires explicit Content-Length
         self._client.put_object(
             Bucket=self.bucket_name,
             Key=key,
-            Body=buffer.getvalue(),
+            Body=body,
+            ContentLength=len(body),
             ContentType="application/octet-stream",
         )
 
-        logger.info(f"[{symbol}] Wrote {len(df)} rows to r2://{self.bucket_name}/{key}")
+        logger.info(f"[{symbol}] Wrote {len(df)} rows to oci://{self.bucket_name}/{key}")
         return Path(key)  # Return virtual path
 
     def read(self, symbol: str) -> pl.DataFrame | None:
-        """Read existing data for a symbol from R2."""
+        """Read existing data for a symbol from Oracle Object Storage."""
         key = self._get_key(symbol)
 
         try:
@@ -121,11 +150,11 @@ class CloudflareR2Sink(DataSink):
             error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
             if error_code in ("NoSuchKey", "404"):
                 return None
-            logger.warning(f"[{symbol}] Error reading from R2: {e}")
+            logger.warning(f"[{symbol}] Error reading from Oracle Object Storage: {e}")
             return None
 
     def exists(self, symbol: str) -> bool:
-        """Check if data exists for a symbol in R2."""
+        """Check if data exists for a symbol in Oracle Object Storage."""
         key = self._get_key(symbol)
 
         try:
@@ -135,7 +164,7 @@ class CloudflareR2Sink(DataSink):
             return False
 
     def list_symbols(self) -> list[str]:
-        """List all available symbols in the R2 bucket."""
+        """List all available symbols in the OCI bucket."""
         symbols = []
 
         paginator = self._client.get_paginator("list_objects_v2")

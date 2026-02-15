@@ -12,17 +12,22 @@ def create_sink(settings: IngestSettings | None = None) -> DataSink:
     The sink type is determined by the HERMES_SINK_TYPE environment variable
     or the sink_type field in IngestSettings.
 
+    Supported sink types:
+      - 'local': LocalFileSink (default) — stores parquet files locally
+      - 'cloudflare_r2': CloudflareR2Sink — Cloudflare R2 (S3-compatible)
+      - 'oracle_object_storage': OracleObjectStorageSink — Oracle Cloud (S3-compatible)
+
     Args:
         settings: Optional IngestSettings instance. If not provided, will
                   load settings from environment variables.
 
     Returns:
-        DataSink instance (LocalFileSink or CloudflareR2Sink)
+        DataSink instance
 
     Raises:
         ValueError: If sink_type is unknown
-        ImportError: If R2 sink is requested but boto3 is not installed
-        ValueError: If R2 sink is requested but credentials are missing
+        ImportError: If cloud sink is requested but boto3 is not installed
+        ValueError: If cloud sink is requested but credentials are missing
     """
     if settings is None:
         from hermes_ingest.config import get_settings
@@ -60,8 +65,41 @@ def create_sink(settings: IngestSettings | None = None) -> DataSink:
             prefix=settings.r2_prefix,
         )
 
+    elif settings.sink_type == "oracle_object_storage":
+        # Validate required Oracle OCI settings
+        if not all([
+            settings.oci_namespace,
+            settings.oci_region,
+            settings.oci_access_key_id,
+            settings.oci_secret_access_key,
+        ]):
+            raise ValueError(
+                "Oracle Object Storage sink requires HERMES_OCI_NAMESPACE, "
+                "HERMES_OCI_REGION, HERMES_OCI_ACCESS_KEY_ID, and "
+                "HERMES_OCI_SECRET_ACCESS_KEY environment variables to be set."
+            )
+
+        # Import lazily to avoid requiring boto3 for local-only usage
+        from hermes_ingest.sinks.oracle_object_storage import OracleObjectStorageSink
+
+        # Type assertions (we validated above they are non-None)
+        assert settings.oci_namespace is not None
+        assert settings.oci_region is not None
+        assert settings.oci_access_key_id is not None
+        assert settings.oci_secret_access_key is not None
+
+        return OracleObjectStorageSink(
+            namespace=settings.oci_namespace,
+            region=settings.oci_region,
+            access_key_id=settings.oci_access_key_id,
+            secret_access_key=settings.oci_secret_access_key,
+            bucket_name=settings.oci_bucket_name,
+            prefix=settings.oci_prefix,
+        )
+
     else:
         raise ValueError(
             f"Unknown sink type: {settings.sink_type}. "
-            f"Valid options are: 'local', 'cloudflare_r2'"
+            f"Valid options are: 'local', 'cloudflare_r2', 'oracle_object_storage'"
         )
+

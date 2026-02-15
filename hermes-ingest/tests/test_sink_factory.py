@@ -59,6 +59,32 @@ class TestSinkFactory:
         with pytest.raises(ValueError, match="Cloudflare R2 sink requires"):
             create_sink(settings)
 
+    def test_create_oci_sink_missing_credentials_raises(self):
+        """Test that missing OCI credentials raises ValueError."""
+        settings = IngestSettings(
+            sink_type="oracle_object_storage",
+            oci_namespace=None,
+            oci_region=None,
+            oci_access_key_id=None,
+            oci_secret_access_key=None,
+        )
+
+        with pytest.raises(ValueError, match="Oracle Object Storage sink requires"):
+            create_sink(settings)
+
+    def test_create_oci_sink_partial_credentials_raises(self):
+        """Test that partial OCI credentials raises ValueError."""
+        settings = IngestSettings(
+            sink_type="oracle_object_storage",
+            oci_namespace="some-namespace",
+            oci_region="ap-mumbai-1",
+            oci_access_key_id="some-key",
+            oci_secret_access_key=None,  # Missing one
+        )
+
+        with pytest.raises(ValueError, match="Oracle Object Storage sink requires"):
+            create_sink(settings)
+
     def test_invalid_sink_type_raises(self):
         """Test that invalid sink type raises ValueError."""
         settings = IngestSettings(
@@ -79,6 +105,7 @@ class TestSinkFactory:
 
         assert "local" in str(exc_info.value)
         assert "cloudflare_r2" in str(exc_info.value)
+        assert "oracle_object_storage" in str(exc_info.value)
 
 
 class TestSinkFactoryR2Integration:
@@ -94,11 +121,8 @@ class TestSinkFactoryR2Integration:
             client = boto3.client("s3", region_name="us-east-1")
             client.create_bucket(Bucket="test-bucket")
 
-            # This test verifies the factory logic works
             from hermes_ingest.sinks.cloudflare_r2 import CloudflareR2Sink
 
-            # Directly test CloudflareR2Sink would work with credentials
-            # Factory will validate and create the sink
             sink = CloudflareR2Sink(
                 account_id="test-account",
                 access_key_id="test-key",
@@ -106,9 +130,104 @@ class TestSinkFactoryR2Integration:
                 bucket_name="test-bucket",
                 prefix="minute",
             )
-            # Override client with mocked one
             sink._client = client
 
             assert sink is not None
             assert sink.bucket_name == "test-bucket"
             assert sink.prefix == "minute"
+
+    def test_create_r2_sink_via_factory(self):
+        """Test create_sink() factory branch for cloudflare_r2."""
+        from moto import mock_aws
+
+        with mock_aws():
+            settings = IngestSettings(
+                _env_file=None,
+                sink_type="cloudflare_r2",
+                r2_account_id="test-account",
+                r2_access_key_id="test-key",
+                r2_secret_access_key="test-secret",
+                r2_bucket_name="test-bucket",
+                r2_prefix="minute",
+            )
+            sink = create_sink(settings)
+
+            from hermes_ingest.sinks.cloudflare_r2 import CloudflareR2Sink
+            assert isinstance(sink, CloudflareR2Sink)
+            assert sink.bucket_name == "test-bucket"
+
+
+class TestSinkFactoryOCIIntegration:
+    """Integration tests for OCI sink creation (with mocked AWS/S3)."""
+
+    def test_create_oci_sink_with_valid_credentials(self):
+        """Test that factory creates OracleObjectStorageSink with valid credentials."""
+        import boto3
+        from moto import mock_aws
+
+        with mock_aws():
+            client = boto3.client("s3", region_name="us-east-1")
+            client.create_bucket(Bucket="test-oci-bucket")
+
+            from hermes_ingest.sinks.oracle_object_storage import OracleObjectStorageSink
+
+            sink = OracleObjectStorageSink(
+                namespace="test-namespace",
+                region="ap-hyderabad-1",
+                access_key_id="test-key",
+                secret_access_key="test-secret",
+                bucket_name="test-oci-bucket",
+                prefix="minute",
+            )
+            sink._client = client
+
+            assert sink is not None
+            assert sink.bucket_name == "test-oci-bucket"
+            assert sink.prefix == "minute"
+
+    def test_create_oci_sink_via_factory(self):
+        """Test create_sink() factory branch for oracle_object_storage."""
+        from moto import mock_aws
+
+        with mock_aws():
+            settings = IngestSettings(
+                _env_file=None,
+                sink_type="oracle_object_storage",
+                oci_namespace="test-namespace",
+                oci_region="ap-hyderabad-1",
+                oci_access_key_id="test-key",
+                oci_secret_access_key="test-secret",
+                oci_bucket_name="test-oci-bucket",
+                oci_prefix="minute",
+            )
+            sink = create_sink(settings)
+
+            from hermes_ingest.sinks.oracle_object_storage import OracleObjectStorageSink
+            assert isinstance(sink, OracleObjectStorageSink)
+            assert sink.bucket_name == "test-oci-bucket"
+
+
+class TestSinkLazyImports:
+    """Test lazy import mechanism in sinks/__init__.py."""
+
+    def test_lazy_import_cloudflare_r2_sink(self):
+        """Test lazy import of CloudflareR2Sink via __getattr__."""
+        from hermes_ingest import sinks
+        cls = sinks.CloudflareR2Sink
+        assert cls is not None
+        assert cls.__name__ == "CloudflareR2Sink"
+
+    def test_lazy_import_oracle_object_storage_sink(self):
+        """Test lazy import of OracleObjectStorageSink via __getattr__."""
+        from hermes_ingest import sinks
+        cls = sinks.OracleObjectStorageSink
+        assert cls is not None
+        assert cls.__name__ == "OracleObjectStorageSink"
+
+    def test_lazy_import_unknown_raises(self):
+        """Test that unknown attribute raises AttributeError."""
+        from hermes_ingest import sinks
+        with pytest.raises(AttributeError, match="has no attribute"):
+            _ = sinks.NonExistentSink
+
+

@@ -10,6 +10,12 @@ from hermes_ingest.orchestrator import IngestOrchestrator
 from hermes_ingest.sinks.local import LocalFileSink
 
 
+async def async_generator_from_list(items):
+    """Helper to create async generator from a list."""
+    for item in items:
+        yield item
+
+
 class TestIngestOrchestrator:
     """Test suite for IngestOrchestrator."""
 
@@ -39,6 +45,7 @@ class TestIngestOrchestrator:
         """Test sink property creates LocalFileSink."""
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
             mock_settings.return_value.zerodha_enctoken = "test"
+            mock_settings.return_value.sink_type = "local"
             mock_settings.return_value.get_sink_path.return_value = temp_data_dir
 
             orch = IngestOrchestrator()
@@ -63,17 +70,18 @@ class TestIngestOrchestrator:
         mock_sink.exists.return_value = True
         mock_sink.get_last_timestamp.return_value = "2099-12-31T23:59:00"
 
-        mock_source = AsyncMock()
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 0
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             result = await orch.fetch_symbol("TEST", 12345)
 
             assert result is True
-            # Source fetch should not be called if up to date
-            mock_source.fetch.assert_not_called()
+            # Source fetch_chunks should not be called if up to date
+            mock_source.fetch_chunks.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fetch_symbol_no_new_data(self, temp_data_dir):
@@ -81,11 +89,13 @@ class TestIngestOrchestrator:
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
-        mock_source = AsyncMock()
-        mock_source.fetch.return_value = None
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 1
+        # Return empty async generator
+        mock_source.fetch_chunks.return_value = async_generator_from_list([])
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             result = await orch.fetch_symbol("TEST", 12345)
@@ -99,11 +109,15 @@ class TestIngestOrchestrator:
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
-        mock_source = AsyncMock()
-        mock_source.fetch.return_value = sample_ohlcv_df
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 1
+        # Return async generator with one chunk
+        mock_source.fetch_chunks.return_value = async_generator_from_list([
+            (sample_ohlcv_df, "2024-01-01", "2024-03-01")
+        ])
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             result = await orch.fetch_symbol("TEST", 12345)
@@ -117,11 +131,18 @@ class TestIngestOrchestrator:
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
-        mock_source = AsyncMock()
-        mock_source.fetch.side_effect = Exception("Network error")
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 1
+
+        # Create async generator that raises
+        async def error_generator():
+            raise Exception("Network error")
+            yield  # Make it a generator
+
+        mock_source.fetch_chunks.return_value = error_generator()
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             result = await orch.fetch_symbol("TEST", 12345)
@@ -137,7 +158,6 @@ class TestIngestOrchestrator:
             "tradingsymbol": [],
         })
         mock_source.close = AsyncMock()
-        mock_source.fetch = AsyncMock(return_value=None)
 
         mock_sink = MagicMock()
 
@@ -147,18 +167,24 @@ class TestIngestOrchestrator:
         assert results == {}
 
     @pytest.mark.asyncio
-    async def test_sync_processes_instruments(self, sample_instruments_df):
+    async def test_sync_processes_instruments(self, sample_instruments_df, sample_ohlcv_df):
         """Test sync processes all instruments."""
         mock_source = MagicMock()
         mock_source.list_instruments.return_value = sample_instruments_df
-        mock_source.fetch = AsyncMock(return_value=None)  # No data
+        mock_source.calculate_chunks.return_value = 1
         mock_source.close = AsyncMock()
+
+        # Each fetch_chunks call returns an empty generator (no new data)
+        def create_empty_generator(*args, **kwargs):
+            return async_generator_from_list([])
+
+        mock_source.fetch_chunks.side_effect = create_empty_generator
 
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             results = await orch.sync()
@@ -173,14 +199,19 @@ class TestIngestOrchestrator:
         """Test sync respects limit parameter."""
         mock_source = MagicMock()
         mock_source.list_instruments.return_value = sample_instruments_df
-        mock_source.fetch = AsyncMock(return_value=None)
+        mock_source.calculate_chunks.return_value = 1
         mock_source.close = AsyncMock()
+
+        def create_empty_generator(*args, **kwargs):
+            return async_generator_from_list([])
+
+        mock_source.fetch_chunks.side_effect = create_empty_generator
 
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             results = await orch.sync(limit=1)
@@ -192,20 +223,26 @@ class TestIngestOrchestrator:
         """Test sync filters by symbol list."""
         mock_source = MagicMock()
         mock_source.list_instruments.return_value = sample_instruments_df
-        mock_source.fetch = AsyncMock(return_value=None)
+        mock_source.calculate_chunks.return_value = 1
         mock_source.close = AsyncMock()
+
+        def create_empty_generator(*args, **kwargs):
+            return async_generator_from_list([])
+
+        mock_source.fetch_chunks.side_effect = create_empty_generator
 
         mock_sink = MagicMock()
         mock_sink.exists.return_value = False
 
         with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
-            mock_settings.return_value.start_date = "2020-01-01"
+            mock_settings.return_value.start_date = "2010-01-01"
 
             orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
             results = await orch.sync(symbols=["RELIANCE", "TCS"])
 
             assert len(results) == 2
             assert "RELIANCE" in results
+
     @pytest.mark.asyncio
     async def test_close_calls_source_close(self):
         """Test close method calls source.close."""
@@ -225,3 +262,63 @@ class TestIngestOrchestrator:
             assert orch.source == mock_source
 
         mock_source.close.assert_called_once()
+
+
+class TestIncrementalWrites:
+    """Test suite for incremental write functionality."""
+
+    @pytest.mark.asyncio
+    async def test_writes_each_chunk_immediately(self, sample_ohlcv_df):
+        """Test that each chunk is written immediately, not accumulated."""
+        mock_sink = MagicMock()
+        mock_sink.exists.return_value = False
+
+        # Create two chunks
+        chunk1 = sample_ohlcv_df.head(2)
+        chunk2 = sample_ohlcv_df.tail(2)
+
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 2
+        mock_source.fetch_chunks.return_value = async_generator_from_list([
+            (chunk1, "2024-01-01", "2024-02-01"),
+            (chunk2, "2024-02-02", "2024-03-01"),
+        ])
+
+        with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
+            mock_settings.return_value.start_date = "2010-01-01"
+
+            orch = IngestOrchestrator(source=mock_source, sink=mock_sink)
+            result = await orch.fetch_symbol("TEST", 12345)
+
+            assert result is True
+            # Should be called twice - once per chunk
+            assert mock_sink.write.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_progress_updated_per_chunk(self, sample_ohlcv_df):
+        """Test that progress is updated after each chunk."""
+        from hermes_ingest.progress import ProgressTracker
+
+        mock_sink = MagicMock()
+        mock_sink.exists.return_value = False
+
+        mock_source = MagicMock()
+        mock_source.calculate_chunks.return_value = 2
+        mock_source.fetch_chunks.return_value = async_generator_from_list([
+            (sample_ohlcv_df.head(2), "2024-01-01", "2024-02-01"),
+            (sample_ohlcv_df.tail(2), "2024-02-02", "2024-03-01"),
+        ])
+
+        progress = ProgressTracker(show_progress=False)
+
+        with patch("hermes_ingest.orchestrator.get_settings") as mock_settings:
+            mock_settings.return_value.start_date = "2010-01-01"
+
+            orch = IngestOrchestrator(
+                source=mock_source, sink=mock_sink, progress=progress
+            )
+            await orch.fetch_symbol("TEST", 12345)
+
+            # Check progress was tracked
+            assert "TEST" in progress._symbol_progress
+            assert progress._symbol_progress["TEST"].completed_chunks == 2

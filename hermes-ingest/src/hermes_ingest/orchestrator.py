@@ -8,8 +8,8 @@ from typing import Any
 import polars as pl
 
 from hermes_ingest.config import IngestSettings, get_settings
+from hermes_ingest.progress import ProgressTracker
 from hermes_ingest.sinks.base import DataSink
-from hermes_ingest.sinks.local import LocalFileSink
 from hermes_ingest.sources.base import DataSource
 from hermes_ingest.sources.zerodha import ZerodhaSource
 
@@ -28,6 +28,7 @@ class IngestOrchestrator:
         source: DataSource | None = None,
         sink: DataSink | None = None,
         settings: IngestSettings | None = None,
+        progress: ProgressTracker | None = None,
     ):
         """Initialize the orchestrator.
 
@@ -35,10 +36,12 @@ class IngestOrchestrator:
             source: Data source (defaults to ZerodhaSource)
             sink: Data sink (defaults to LocalFileSink)
             settings: Configuration settings
+            progress: Optional progress tracker for UI updates
         """
         self._settings = settings or get_settings()
         self._source = source
         self._sink = sink
+        self._progress = progress
 
     async def close(self) -> None:
         """Close resources (source connection)."""
@@ -66,14 +69,48 @@ class IngestOrchestrator:
     def sink(self) -> DataSink:
         """Get or create the data sink."""
         if self._sink is None:
-            sink_path = self._settings.get_sink_path()
-            self._sink = LocalFileSink(sink_path)
+            from hermes_ingest.sinks.factory import create_sink
+            self._sink = create_sink(self._settings)
         return self._sink
 
-    async def fetch_symbol(self, symbol: str, token: int) -> bool:
-        """Fetch data for a single symbol.
+    def _get_resume_date(self, symbol: str, default_start: str) -> str:
+        """Get the date to resume fetching from.
 
-        Implements smart resume: only fetches data after the last stored timestamp.
+        Implements smart resume: checks existing data and returns the next day
+        after the last stored timestamp.
+
+        Args:
+            symbol: Instrument symbol
+            default_start: Default start date if no existing data
+
+        Returns:
+            Start date for fetching (YYYY-MM-DD)
+        """
+        if not self.sink.exists(symbol):
+            return default_start
+
+        last_ts = (
+            self.sink.get_last_timestamp(symbol)
+            if hasattr(self.sink, "get_last_timestamp")
+            else None
+        )
+
+        if not last_ts:
+            return default_start
+
+        # Parse and use the date of the last timestamp
+        last_dt = datetime.fromisoformat(last_ts)
+        resume_date = last_dt.strftime("%Y-%m-%d")
+        logger.info(f"[{symbol}] Resuming from {resume_date}")
+        return resume_date
+
+    async def fetch_symbol(self, symbol: str, token: int) -> bool:
+        """Fetch data for a single symbol with incremental writes.
+
+        Implements:
+        - Smart resume: only fetches data after the last stored timestamp
+        - Incremental writes: writes each chunk immediately as it's fetched
+        - Progress updates: updates progress tracker per chunk
 
         Args:
             symbol: Instrument symbol
@@ -83,39 +120,57 @@ class IngestOrchestrator:
             True if successful, False otherwise
         """
         end_date = datetime.now().strftime("%Y-%m-%d")
-        start_date = self._settings.start_date
-
-        # Smart resume: check existing data
-        if self.sink.exists(symbol):
-            last_ts = (
-                self.sink.get_last_timestamp(symbol)
-                if hasattr(self.sink, "get_last_timestamp")
-                else None
-            )
-            if last_ts:
-                # Parse and add one minute
-                last_dt = datetime.fromisoformat(last_ts)
-                start_date = last_dt.strftime("%Y-%m-%d")
-                logger.info(f"[{symbol}] Resuming from {start_date}")
+        start_date = self._get_resume_date(symbol, self._settings.start_date)
 
         # Check if already up to date
         if start_date >= end_date:
             logger.info(f"[{symbol}] Already up to date")
             return True
 
-        # Fetch data
-        try:
-            df = await self.source.fetch(symbol, token, start_date, end_date)
-            if df is None or df.is_empty():
-                logger.info(f"[{symbol}] No new data")
-                return True
+        # Calculate chunks for progress tracking
+        source = self.source
+        if hasattr(source, "calculate_chunks"):
+            total_chunks = source.calculate_chunks(start_date, end_date)
+            if self._progress:
+                self._progress.start_symbol(symbol, total_chunks)
+        else:
+            total_chunks = 0
 
-            # Write to sink
-            self.sink.write(symbol, df)
+        # Fetch and write incrementally
+        try:
+            chunks_written = 0
+            total_rows = 0
+
+            async for chunk_df, _from_date, _to_date in source.fetch_chunks(
+                symbol, token, start_date, end_date
+            ):
+                if chunk_df is None or chunk_df.is_empty():
+                    continue
+
+                # Write immediately - sink handles append/dedupe
+                self.sink.write(symbol, chunk_df)
+                chunks_written += 1
+                total_rows += len(chunk_df)
+
+                # Update progress
+                if self._progress:
+                    self._progress.update_symbol(
+                        symbol, chunks_done=1, rows_written=len(chunk_df)
+                    )
+
+            if chunks_written == 0:
+                logger.info(f"[{symbol}] No new data")
+            else:
+                logger.info(f"[{symbol}] Wrote {chunks_written} chunks, {total_rows} total rows")
+
+            if self._progress:
+                self._progress.complete_symbol(symbol, success=True)
             return True
 
         except Exception as e:
             logger.error(f"[{symbol}] Fetch failed: {e}")
+            if self._progress:
+                self._progress.complete_symbol(symbol, success=False)
             return False
 
     async def sync(
@@ -124,7 +179,7 @@ class IngestOrchestrator:
         limit: int | None = None,
         concurrency: int = 5,
     ) -> dict[str, bool]:
-        """Sync multiple symbols.
+        """Sync multiple symbols with structured concurrency.
 
         Args:
             symbols: List of symbols to sync (or all from source)
@@ -151,7 +206,12 @@ class IngestOrchestrator:
             logger.warning("No instruments to process")
             return {}
 
-        logger.info(f"Starting sync for {len(instruments_df)} symbols (concurrency: {concurrency})")
+        total_symbols = len(instruments_df)
+        logger.info(f"Starting sync for {total_symbols} symbols (concurrency: {concurrency})")
+
+        # Start progress tracking
+        if self._progress:
+            self._progress.start(total_symbols)
 
         # Setup semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
@@ -165,13 +225,10 @@ class IngestOrchestrator:
                 result = await self.fetch_symbol(symbol, token)
                 results[symbol] = result
 
-        # Create tasks
-        tasks = [
-            _process_one(row) for row in instruments_df.iter_rows(named=True)
-        ]
-
-        # Run all tasks
-        await asyncio.gather(*tasks)
+        # Use TaskGroup for structured concurrency (Python 3.11+)
+        async with asyncio.TaskGroup() as tg:
+            for row in instruments_df.iter_rows(named=True):
+                tg.create_task(_process_one(row))
 
         # Close source
         await self.source.close()

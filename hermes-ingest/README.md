@@ -6,7 +6,7 @@
 
 `hermes-ingest` handles all data ingestion operations for Hermes:
 - Fetching historical OHLCV data from brokers
-- Writing to local storage or cloud (Cloudflare R2)
+- Writing to local storage or cloud (Cloudflare R2 / Oracle Object Storage)
 - Smart resume for interrupted downloads
 - Rate limiting and concurrent downloads
 
@@ -16,7 +16,7 @@
 # From the hermes project root
 pip install -e hermes-ingest
 
-# With cloud support (Cloudflare R2)
+# With cloud support (Cloudflare R2 or Oracle Object Storage)
 pip install -e "hermes-ingest[cloud]"
 
 # With test dependencies
@@ -66,6 +66,21 @@ HERMES_R2_BUCKET_NAME=hermes-market-data
 
 See [CLOUDFLARE_R2_SETUP.md](../docs/CLOUDFLARE_R2_SETUP.md) for complete setup guide.
 
+### Oracle Cloud Object Storage (Cloud)
+
+S3-compatible cloud storage with generous free tier:
+
+```bash
+HERMES_SINK_TYPE=oracle_object_storage
+HERMES_OCI_NAMESPACE=your_namespace
+HERMES_OCI_REGION=ap-hyderabad-1
+HERMES_OCI_ACCESS_KEY_ID=your_access_key
+HERMES_OCI_SECRET_ACCESS_KEY=your_secret_key
+HERMES_OCI_BUCKET_NAME=hermes-market-data
+```
+
+See [ORACLE_OBJECT_STORAGE_SETUP.md](../docs/ORACLE_OBJECT_STORAGE_SETUP.md) for complete setup guide.
+
 ### Programmatic Usage
 
 ```python
@@ -86,7 +101,7 @@ df = sink.read("RELIANCE")
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `HERMES_ZERODHA_ENCTOKEN` | Zerodha authentication token | Required |
-| `HERMES_SINK_TYPE` | Storage type: `local` or `cloudflare_r2` | `local` |
+| `HERMES_SINK_TYPE` | Storage type: `local`, `cloudflare_r2`, or `oracle_object_storage` | `local` |
 | `HERMES_SINK_PATH` | Path for local storage | `data/minute` |
 | `HERMES_RATE_LIMIT_PER_SEC` | API rate limit | `2.5` |
 | `HERMES_MAX_CONCURRENCY` | Parallel downloads | `5` |
@@ -114,6 +129,7 @@ hermes-ingest/
 │   │   ├── base.py       # Abstract DataSink
 │   │   ├── local.py      # Local parquet files
 │   │   ├── cloudflare_r2.py  # Cloudflare R2 (S3-compatible)
+│   │   ├── oracle_object_storage.py  # Oracle OCI (S3-compatible)
 │   │   └── factory.py    # Sink factory for easy switching
 │   ├── config.py         # Configuration via env vars
 │   ├── orchestrator.py   # Job orchestration
@@ -168,7 +184,7 @@ class NewCloudSink(DataSink):
 ```bash
 cd hermes-ingest
 pip install -e ".[test]"
-pytest --cov=src/hermes_ingest --cov-fail-under=80
+pytest --cov=src/hermes_ingest --cov-fail-under=90
 ```
 
 ## License

@@ -12,7 +12,7 @@ class TestIngestSettings:
 
     def test_default_values(self):
         """Test default configuration values."""
-        settings = IngestSettings()
+        settings = IngestSettings(_env_file=None)
 
         assert settings.sink_type == "local"
         assert settings.rate_limit_per_sec == 2.5

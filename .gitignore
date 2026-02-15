@@ -7,6 +7,9 @@ venv/
 .env
 *.egg-info/
 
+# IDE
+.vscode/
+
 # Testing & Linting
 .pytest_cache/
 .mypy_cache/

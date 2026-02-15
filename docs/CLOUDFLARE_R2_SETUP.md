@@ -196,7 +196,21 @@ Make sure all three environment variables are set:
 2. Verify the bucket name matches exactly
 3. Ensure the token is scoped to the correct bucket
 
----
+### "SSL: HANDSHAKE_FAILURE" or Connection Issues
+
+If you see `SSLV3_ALERT_HANDSHAKE_FAILURE` or timeouts, your network or ISP may be blocking the `*.r2.cloudflarestorage.com` domain.
+
+**Solution: Use a Custom Domain**
+1. Go to your R2 Bucket in the Cloudflare Dashboard.
+2. Select **Settings** > **Public Access** > **Connect Domain**.
+3. Enter a domain you control (e.g., `data.yourdomain.com`).
+4. Update your `.env` file to use this custom endpoint:
+   ```bash
+   # Use the full custom domain URL as the endpoint
+   HERMES_R2_ENDPOINT_URL=https://data.yourdomain.com
+   ```
+5. Update `hermes-ingest/src/hermes_ingest/sinks/cloudflare_r2.py` to accept an `endpoint_url` parameter if not already supported, or use the `HERMES_R2_ENDPOINT_URL` environment variable.
+
 
 ## Security Notes
 

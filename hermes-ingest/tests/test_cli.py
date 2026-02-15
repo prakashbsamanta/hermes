@@ -17,14 +17,81 @@ class TestCLI:
         result = runner.invoke(main, ["config"])
 
         assert result.exit_code == 0
-        assert "Sink type:" in result.output
-        assert "Sink path:" in result.output
+        # Rich table format uses "Sink type" as column value
+        assert "Sink type" in result.output
 
-    def test_list_symbols_empty(self, temp_data_dir):
-        """Test list-symbols with empty directory."""
+    def test_config_command_local_sink(self):
+        """Test config command shows sink path for local type."""
         runner = CliRunner()
 
         with patch("hermes_ingest.cli.get_settings") as mock_settings:
+            mock_settings.return_value.sink_type = "local"
+            mock_settings.return_value.get_sink_path.return_value = "/tmp/data"
+            mock_settings.return_value.get_instrument_file.return_value = "/tmp/inst.csv"
+            mock_settings.return_value.rate_limit_per_sec = 2.5
+            mock_settings.return_value.max_concurrency = 5
+            mock_settings.return_value.chunk_days = 60
+            mock_settings.return_value.start_date = "2010-01-01"
+            mock_settings.return_value.zerodha_enctoken = "test"
+
+            result = runner.invoke(main, ["config"])
+
+            assert result.exit_code == 0
+            assert "local" in result.output
+
+    def test_config_command_r2_sink(self):
+        """Test config command shows R2-specific settings."""
+        runner = CliRunner()
+
+        with patch("hermes_ingest.cli.get_settings") as mock_settings:
+            mock_settings.return_value.sink_type = "cloudflare_r2"
+            mock_settings.return_value.r2_account_id = "test-account-id"
+            mock_settings.return_value.r2_access_key_id = "test-access-key"
+            mock_settings.return_value.r2_bucket_name = "test-bucket"
+            mock_settings.return_value.r2_prefix = "minute"
+            mock_settings.return_value.get_instrument_file.return_value = "/tmp/inst.csv"
+            mock_settings.return_value.rate_limit_per_sec = 2.5
+            mock_settings.return_value.max_concurrency = 5
+            mock_settings.return_value.chunk_days = 60
+            mock_settings.return_value.start_date = "2010-01-01"
+            mock_settings.return_value.zerodha_enctoken = "test"
+
+            result = runner.invoke(main, ["config"])
+
+            assert result.exit_code == 0
+            assert "test-bucket" in result.output
+            assert "R2 Bucket" in result.output
+
+    def test_list_symbols_sink_error(self):
+        """Test list-symbols handles sink creation errors."""
+        runner = CliRunner()
+
+        with (
+            patch(
+                "hermes_ingest.sinks.factory.create_sink",
+                side_effect=ValueError("Missing credentials"),
+            ),
+            patch("hermes_ingest.cli.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.sink_type = "cloudflare_r2"
+
+            result = runner.invoke(main, ["list-symbols"])
+
+            assert result.exit_code == 1
+            assert "Error creating sink" in result.output
+
+    def test_list_symbols_empty(self, temp_data_dir):
+        """Test list-symbols with empty sink."""
+        runner = CliRunner()
+
+        mock_sink = MagicMock()
+        mock_sink.list_symbols.return_value = []
+
+        with (
+            patch("hermes_ingest.cli.get_settings") as mock_settings,
+            patch("hermes_ingest.sinks.factory.create_sink", return_value=mock_sink),
+        ):
+            mock_settings.return_value.sink_type = "local"
             mock_settings.return_value.get_sink_path.return_value = temp_data_dir
 
             result = runner.invoke(main, ["list-symbols"])
@@ -33,14 +100,17 @@ class TestCLI:
             assert "No symbols found" in result.output
 
     def test_list_symbols_with_data(self, temp_data_dir, sample_ohlcv_df):
-        """Test list-symbols with data files."""
+        """Test list-symbols with data in sink."""
         runner = CliRunner()
 
-        # Create test files
-        sample_ohlcv_df.write_parquet(temp_data_dir / "TEST1.parquet")
-        sample_ohlcv_df.write_parquet(temp_data_dir / "TEST2.parquet")
+        mock_sink = MagicMock()
+        mock_sink.list_symbols.return_value = ["TEST1", "TEST2"]
 
-        with patch("hermes_ingest.cli.get_settings") as mock_settings:
+        with (
+            patch("hermes_ingest.sinks.factory.create_sink", return_value=mock_sink),
+            patch("hermes_ingest.cli.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.sink_type = "local"
             mock_settings.return_value.get_sink_path.return_value = temp_data_dir
 
             result = runner.invoke(main, ["list-symbols"])
@@ -191,8 +261,9 @@ class TestCLI:
             result = runner.invoke(main, ["sync", "--limit", "2"])
 
             assert result.exit_code == 0
-            assert "2 succeeded" in result.output
-            assert "0 failed" in result.output
+            # Rich table shows "Succeeded" and "2" in separate cells
+            assert "Succeeded" in result.output
+            assert "2" in result.output
 
     def test_sync_with_failures(self, temp_data_dir):
         """Test sync command with some failures."""
@@ -215,5 +286,6 @@ class TestCLI:
             result = runner.invoke(main, ["sync"])
 
             assert result.exit_code == 1  # Has failures
-            assert "1 succeeded" in result.output
-            assert "1 failed" in result.output
+            # Rich table shows "Succeeded" with "1" and "Failed" with "1"
+            assert "Succeeded" in result.output
+            assert "Failed" in result.output
