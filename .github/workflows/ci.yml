@@ -63,7 +63,7 @@ jobs:
       working-directory: ./hermes-data
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install -e ".[dev,cloud]"
         
     - name: Run Ruff (Lint)
       working-directory: ./hermes-data
@@ -103,7 +103,7 @@ jobs:
       working-directory: ./hermes-data
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
+        pip install -e ".[cloud]"
         
     - name: Install Backend Dependencies
       working-directory: ./hermes-backend
