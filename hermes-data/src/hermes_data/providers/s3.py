@@ -153,10 +153,15 @@ class S3Provider(DataProvider):
             min_date = df["timestamp"].min()
             max_date = df["timestamp"].max()
             
-            return (
-                min_date.strftime("%Y-%m-%d") if min_date else "N/A",
-                max_date.strftime("%Y-%m-%d") if max_date else "N/A"
-            )
+            min_str = "N/A"
+            if hasattr(min_date, "strftime"):
+                min_str = min_date.strftime("%Y-%m-%d")  # type: ignore
+
+            max_str = "N/A"
+            if hasattr(max_date, "strftime"):
+                max_str = max_date.strftime("%Y-%m-%d")  # type: ignore
+
+            return (min_str, max_str)
         except Exception:
             return ("N/A", "N/A")
 

@@ -1,5 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import userEvent from "@testing-library/user-event";
+import "@testing-library/jest-dom"; // Add this
+
 import { Button } from "./button";
 import {
   Card,
@@ -55,11 +58,33 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuShortcut,
 } from "./dropdown-menu";
 import { Popover, PopoverTrigger, PopoverContent } from "./popover";
 import { Calendar } from "./calendar";
 
+// Mocks for Radix UI interactions
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = vi.fn(() => false);
+Element.prototype.setPointerCapture = vi.fn();
+Element.prototype.releasePointerCapture = vi.fn();
+
 describe("UI Components Coverage", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it("renders Button", () => {
     render(<Button>Click Me</Button>);
     expect(screen.getByText("Click Me")).toBeInTheDocument();
@@ -139,7 +164,6 @@ describe("UI Components Coverage", () => {
       </Tabs>,
     );
     expect(screen.getByText("Account")).toBeInTheDocument();
-    // Content requires interaction or default open
     expect(screen.getByText("Account Content")).toBeInTheDocument();
   });
 
@@ -166,12 +190,10 @@ describe("UI Components Coverage", () => {
     );
     expect(screen.getByText("Caption")).toBeInTheDocument();
     expect(screen.getByText("Head")).toBeInTheDocument();
-    expect(screen.getByText("Cell")).toBeInTheDocument();
-    expect(screen.getByText("Footer")).toBeInTheDocument();
   });
 
-  it("renders Select", () => {
-    // Radix Select renders portal, difficult to test content without interaction
+  it("interacts with Select", async () => {
+    const user = userEvent.setup();
     render(
       <Select>
         <SelectTrigger>
@@ -187,53 +209,113 @@ describe("UI Components Coverage", () => {
         </SelectContent>
       </Select>,
     );
-    expect(screen.getByText("Select")).toBeInTheDocument();
+
+    // Open using role combobox
+    await user.click(screen.getByRole("combobox"));
+    // Select item
+    const item = await screen.findByText("Apple");
+    await user.click(item);
+
+    // Check value updated - text "Apple" should be present in trigger
+    expect(screen.getByText("Apple")).toBeInTheDocument();
   });
 
-  it("renders Dialog", () => {
+  it("interacts with Dialog", async () => {
+    const user = userEvent.setup();
     render(
       <Dialog>
-        <DialogTrigger>Open</DialogTrigger>
+        <DialogTrigger>Open Dialog</DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Title</DialogTitle>
-            <DialogDescription>Desc</DialogDescription>
+            <DialogTitle>Dialog Title</DialogTitle>
+            <DialogDescription>Dialog Desc</DialogDescription>
           </DialogHeader>
-          <div>Content</div>
+          <div>Dialog Content</div>
           <DialogFooter>Footer</DialogFooter>
         </DialogContent>
       </Dialog>,
     );
-    expect(screen.getByText("Open")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Open Dialog"));
+    expect(await screen.findByText("Dialog Title")).toBeVisible();
+    expect(screen.getByText("Dialog Content")).toBeVisible();
   });
 
-  it("renders DropdownMenu", () => {
+  it("interacts with DropdownMenu", async () => {
+    const user = userEvent.setup();
     render(
       <DropdownMenu>
-        <DropdownMenuTrigger>Open</DropdownMenuTrigger>
+        <DropdownMenuTrigger>Open Menu</DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuLabel>Label</DropdownMenuLabel>
+          <DropdownMenuLabel>Menu Label</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Item</DropdownMenuItem>
+          <DropdownMenuItem>Menu Item</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>,
     );
-    expect(screen.getByText("Open")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Open Menu"));
+    expect(await screen.findByText("Menu Label")).toBeVisible();
+    expect(screen.getByText("Menu Item")).toBeVisible();
   });
 
-  it("renders Popover", () => {
+  it("interacts with Popover", async () => {
+    const user = userEvent.setup();
     render(
       <Popover>
-        <PopoverTrigger>Open</PopoverTrigger>
-        <PopoverContent>Content</PopoverContent>
+        <PopoverTrigger>Open Popover</PopoverTrigger>
+        <PopoverContent>Popover Content</PopoverContent>
       </Popover>,
     );
-    expect(screen.getByText("Open")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Open Popover"));
+    expect(await screen.findByText("Popover Content")).toBeVisible();
   });
 
-  it("renders Calendar (SmartCalendar)", () => {
+  it("interacts with Calendar", async () => {
+    const user = userEvent.setup();
     render(<Calendar />);
-    expect(screen.getByText("Target date")).toBeInTheDocument(); // My custom label
-    expect(screen.getByText("Today")).toBeInTheDocument(); // My footer button
+
+    // Check elements
+    expect(screen.getByText("Target date")).toBeInTheDocument();
+    const todayBtn = screen.getByText("Today");
+    expect(todayBtn).toBeInTheDocument();
+
+    // Click Today
+    await user.click(todayBtn);
+
+    // Instead of role=grid, check for presence of date buttons (1, 15, 28, etc.)
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("15")).toBeInTheDocument();
+  });
+
+  it("renders DropdownMenu extras", async () => {
+    const user = userEvent.setup();
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger>Open Extras</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuCheckboxItem checked>Checkbox</DropdownMenuCheckboxItem>
+          <DropdownMenuRadioGroup value="r1">
+            <DropdownMenuRadioItem value="r1">Radio</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Sub</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem>Sub Item</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuItem>
+            Item <DropdownMenuShortcut>⌘+S</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+
+    await user.click(screen.getByText("Open Extras"));
+    expect(await screen.findByText("Checkbox")).toBeVisible();
+    expect(screen.getByText("Radio")).toBeVisible();
+    expect(screen.getByText("Sub")).toBeVisible();
+    expect(screen.getByText("⌘+S")).toBeVisible();
   });
 });

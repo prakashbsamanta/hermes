@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from hermes_ingest.sinks.base import DataSink
+from hermes_ingest.sinks.base import Compression, DataSink
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -44,7 +44,7 @@ class OracleObjectStorageSink(DataSink):
         secret_access_key: str,
         bucket_name: str,
         prefix: str = "minute",
-        compression: str = "zstd",
+        compression: Compression = "zstd",
     ):
         """Initialize the Oracle Object Storage sink.
 

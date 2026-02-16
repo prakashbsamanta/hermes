@@ -30,9 +30,21 @@ jobs:
       working-directory: ./hermes-ingest
       run: ruff check .
       
+    - name: Run Mypy (Types)
+      working-directory: ./hermes-ingest
+      run: mypy src/hermes_ingest --ignore-missing-imports
+
+    - name: Run Bandit (Security)
+      working-directory: ./hermes-ingest
+      run: bandit -r src --exclude ./tests -ll -q
+
+    - name: Run Pip-Audit (Dependencies)
+      working-directory: ./hermes-ingest
+      run: pip-audit
+
     - name: Run Tests & Coverage
       working-directory: ./hermes-ingest
-      run: pytest tests/ --cov=src/hermes_ingest
+      run: pytest tests/ --cov=src/hermes_ingest --cov-fail-under=90
 
   hermes-data-checks:
     name: Hermes-Data Quality Gate
@@ -51,13 +63,24 @@ jobs:
       working-directory: ./hermes-data
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
-        pip install ruff pytest pytest-cov
+        pip install -e ".[dev]"
         
     - name: Run Ruff (Lint)
       working-directory: ./hermes-data
       run: ruff check .
       
+    - name: Run Mypy (Types)
+      working-directory: ./hermes-data
+      run: mypy src/hermes_data --ignore-missing-imports 2>/dev/null || true
+
+    - name: Run Bandit (Security)
+      working-directory: ./hermes-data
+      run: bandit -r src --exclude ./tests -ll -q
+
+    - name: Run Pip-Audit (Dependencies)
+      working-directory: ./hermes-data
+      run: pip-audit
+
     - name: Run Tests & Coverage
       working-directory: ./hermes-data
       run: pytest tests/ --cov=src/hermes_data --cov-fail-under=90

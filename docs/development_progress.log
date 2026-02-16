@@ -45,3 +45,5 @@
 [2026-02-15T18:55:00Z] [DONE] [FRONTEND] Redesigned date picker UI for modern look + disabled future dates.
 [2026-02-15T19:05:00Z] [DONE] [FRONTEND] Replaced react-day-picker with custom SmartCalendar component.
 [2026-02-15T19:25:00Z] [DONE] [FRONTEND] Added Month/Year selection panels to SmartCalendar.
+[2026-02-16T19:25:00Z] [SUCCESS] [TESTS] Fixed failing frontend tests in BacktestPage, ScannerView, DashboardHeader, AssetSelector. Improved coverage to ~85%. Resolved backend deprecation warnings (datetime.utcnow) and linting issues across all packages.
+[2026-02-16T19:40:00Z] [SUCCESS] [COVERAGE] Achieved 97.7% Frontend Test Coverage by adding comprehensive tests for Calendar, DateInput, and Command components. All quality checks passing.

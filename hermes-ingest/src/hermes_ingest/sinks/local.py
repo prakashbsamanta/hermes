@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
-from hermes_ingest.sinks.base import DataSink
+from hermes_ingest.sinks.base import Compression, DataSink
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class LocalFileSink(DataSink):
     providing atomic writes and smart resume functionality.
     """
 
-    def __init__(self, data_dir: str | Path, compression: str = "zstd"):
+    def __init__(self, data_dir: str | Path, compression: Compression = "zstd"):
         """Initialize the local file sink.
 
         Args:

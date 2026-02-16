@@ -15,7 +15,10 @@ class TestDataService:
 
     def test_init_with_defaults(self, temp_data_dir: Path):
         """Should initialize with default settings when HERMES_DATA_DIR is set."""
-        with patch.dict("os.environ", {"HERMES_DATA_DIR": str(temp_data_dir)}):
+        with patch.dict("os.environ", {
+            "HERMES_DATA_DIR": str(temp_data_dir),
+            "HERMES_STORAGE_PROVIDER": "local"
+        }):
             from hermes_data.config import get_settings
             get_settings.cache_clear()
             
@@ -135,3 +138,40 @@ class TestDataService:
         df = service.get_market_data(["testsym"])
         
         assert len(df) > 0
+
+    def test_create_provider_r2(self):
+        """Should create S3Provider for R2."""
+        with patch.dict("os.environ", {
+            "HERMES_STORAGE_PROVIDER": "cloudflare_r2",
+            "HERMES_R2_ACCOUNT_ID": "test_acc",
+            "HERMES_R2_ACCESS_KEY_ID": "test_key",
+            "HERMES_R2_SECRET_ACCESS_KEY": "test_secret",
+            "HERMES_R2_BUCKET_NAME": "test_bucket",
+        }):
+            from hermes_data.config import get_settings
+            get_settings.cache_clear()
+            
+            with patch("hermes_data.providers.s3.S3Provider") as MockS3:
+                DataService()
+                MockS3.assert_called_once()
+                call_kwargs = MockS3.call_args[1]
+                assert "r2.cloudflarestorage.com" in call_kwargs["endpoint_url"]
+
+    def test_create_provider_oracle(self):
+        """Should create S3Provider for Oracle."""
+        with patch.dict("os.environ", {
+            "HERMES_STORAGE_PROVIDER": "oracle_object_storage",
+            "HERMES_OCI_NAMESPACE": "test_ns",
+            "HERMES_OCI_REGION": "us-ashburn-1",
+            "HERMES_OCI_ACCESS_KEY_ID": "test_key",
+            "HERMES_OCI_SECRET_ACCESS_KEY": "test_secret",
+            "HERMES_OCI_BUCKET_NAME": "test_bucket",
+        }):
+            from hermes_data.config import get_settings
+            get_settings.cache_clear()
+            
+            with patch("hermes_data.providers.s3.S3Provider") as MockS3:
+                DataService()
+                MockS3.assert_called_once()
+                call_kwargs = MockS3.call_args[1]
+                assert "oraclecloud.com" in call_kwargs["endpoint_url"]

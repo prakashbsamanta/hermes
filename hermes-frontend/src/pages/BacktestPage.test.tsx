@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BacktestPage } from "./BacktestPage";
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { useBacktest } from "@/hooks/useBacktest";
 
 // Mock Modules
 vi.mock("@/hooks/useBacktest");
@@ -18,6 +19,17 @@ vi.mock("sonner", () => ({
 vi.mock("@/components/ChartComponent", () => ({
   ChartComponent: () => <div data-testid="chart-component">Mock Chart</div>,
 }));
+
+vi.mock("@/components/backtest/ScannerView", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ScannerView: ({ onNavigateToSymbol, onScan }: any) => (
+    <div data-testid="scanner-view">
+      <button onClick={() => onNavigateToSymbol("AAPL")}>Navigate AAPL</button>
+      <button onClick={() => onScan()}>Run Scan</button>
+    </div>
+  ),
+}));
+
 vi.mock("@/components/dashboard/DashboardHeader", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   DashboardHeader: (props: any) => (
@@ -76,9 +88,6 @@ vi.mock("framer-motion", () => ({
     <>{children}</>
   ),
 }));
-
-// Import hook after mocking
-import { useBacktest } from "@/hooks/useBacktest";
 
 describe("BacktestPage", () => {
   const mockMutate = vi.fn();
@@ -170,7 +179,7 @@ describe("BacktestPage", () => {
     expect(screen.getByTestId("chart-component")).toBeInTheDocument();
   });
 
-  it("displays error message via toast on failure", () => {
+  it("displays error message via toast on failure", async () => {
     // eslint-disable-next-line
     (useBacktest as any).mockReturnValue({
       mutate: mockMutate,
@@ -180,8 +189,100 @@ describe("BacktestPage", () => {
     });
 
     render(<BacktestPage />);
-    expect(toast.error).toHaveBeenCalledWith(
-      "Backtest failed: Backtest Failed",
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Backtest failed: Backtest Failed",
+      );
+    });
+  });
+
+  it("displays success message via toast on success", async () => {
+    // eslint-disable-next-line
+    (useBacktest as any).mockReturnValue({
+      mutate: mockMutate,
+      reset: mockReset,
+      isSuccess: true,
+      data: { metrics: {} },
+    });
+
+    render(<BacktestPage />);
+
+    // Select an asset to define singleSymbol so the toast fires
+    const selectBtn = screen.getByText("Select AAPL");
+    fireEvent.click(selectBtn);
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining("Backtest completed for AAPL"),
+      );
+    });
+  });
+
+  it("handles instrument load failure", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // eslint-disable-next-line
+    (api.getInstruments as any).mockRejectedValue(new Error("Network Error"));
+
+    render(<BacktestPage />);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Failed to load instruments. Check backend connection.",
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it("handles scanning via handleScan", async () => {
+    // Mock runScan
+    // eslint-disable-next-line
+    (api.runScan as any).mockResolvedValue({
+      results: [],
+      completed: 10,
+      failed: 0,
+      cached_count: 5,
+      fresh_count: 5,
+    });
+
+    render(<BacktestPage />);
+
+    // To trigger handleScan, we must be in batch mode (default) and click Run
+    // const header = screen.getByTestId("dashboard-header");
+    const runBtn = screen.getByText("Run Mock");
+    fireEvent.click(runBtn);
+
+    await waitFor(() => {
+      expect(api.runScan).toHaveBeenCalled();
+    });
+
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("Scan completed"),
     );
+  });
+
+  it("handles navigation to symbol from scanner", async () => {
+    // Mock scan to ensure we are in a state where scanner is potentially usable
+    // eslint-disable-next-line
+    (api.runScan as any).mockResolvedValue({
+      results: [],
+      completed: 0,
+      failed: 0,
+      cached_count: 0,
+      fresh_count: 0,
+    });
+
+    render(<BacktestPage />);
+
+    // The ScannerView mock (added earlier) exposes "Navigate AAPL" button
+    const navBtn = screen.getByText("Navigate AAPL");
+    fireEvent.click(navBtn);
+
+    // Should switch to single mode (selectedAssets = ["AAPL"])
+    // Verify by checking if dashboard header shows selected assets
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-assets")).toHaveTextContent(
+        '["AAPL"]',
+      );
+    });
   });
 });

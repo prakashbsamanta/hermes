@@ -1,7 +1,7 @@
 """Registry service for managing instrument metadata and data availability."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import func, or_, select
@@ -232,7 +232,7 @@ class RegistryService:
             availability.row_count = row_count  # type: ignore
             availability.file_path = file_path  # type: ignore
             availability.file_size_mb = file_size_mb  # type: ignore
-            availability.last_updated = datetime.utcnow()  # type: ignore
+            availability.last_updated = datetime.now(timezone.utc)  # type: ignore
             
             session.flush()
             session.expunge(availability)

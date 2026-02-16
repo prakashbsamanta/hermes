@@ -104,11 +104,8 @@ describe("ScannerView", () => {
       />,
     );
 
-    // Default is usually not sorted or specific order? Component sets return/desc default
-    // Let's verify initial order. AAPL: 10%, GOOGL: -5%, MSFT: 15%
-    // Desc order: MSFT (15), AAPL (10), GOOGL (-5)
-
-    // We can get rows and check symbol text
+    // Default: Total Return Desc
+    // MSFT (15%), AAPL (10%), GOOGL (-5%)
     const rows = screen.getAllByRole("row");
     // Row 0 is header.
     expect(rows[1]).toHaveTextContent("MSFT");
@@ -130,7 +127,7 @@ describe("ScannerView", () => {
     );
 
     const totalReturnHeader = screen.getByText("Total Return");
-    await user.click(totalReturnHeader); // Click once to reverse default desc to asc
+    await user.click(totalReturnHeader); // Toggle to ASC
 
     // Asc order: GOOGL (-5), AAPL (10), MSFT (15)
     const rows = screen.getAllByRole("row");
@@ -139,7 +136,7 @@ describe("ScannerView", () => {
     expect(rows[3]).toHaveTextContent("MSFT");
   });
 
-  it("sorts by Sharpe Ratio when clicked", async () => {
+  it("sorts by Sharpe Ratio", async () => {
     const user = userEvent.setup();
     render(
       <ScannerView
@@ -153,25 +150,22 @@ describe("ScannerView", () => {
     );
 
     const sharpeRatioHeader = screen.getByText("Sharpe");
-    await user.click(sharpeRatioHeader); // Click once for default desc
+    await user.click(sharpeRatioHeader); // Set to Sharpe Desc
 
-    // Sharpe Ratios: AAPL: 0.8, GOOGL: 0.2, MSFT: 1.5
-    // Desc: MSFT (1.5), AAPL (0.8), GOOGL (0.2)
+    // Sharpe: MSFT (1.5), AAPL (0.8), GOOGL (0.2)
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent("MSFT");
     expect(rows[2]).toHaveTextContent("AAPL");
     expect(rows[3]).toHaveTextContent("GOOGL");
 
-    await user.click(sharpeRatioHeader); // Click again for asc
-
-    // Asc: GOOGL (0.2), AAPL (0.8), MSFT (1.5)
+    await user.click(sharpeRatioHeader); // Toggle ASC
     const rowsAsc = screen.getAllByRole("row");
     expect(rowsAsc[1]).toHaveTextContent("GOOGL");
     expect(rowsAsc[2]).toHaveTextContent("AAPL");
     expect(rowsAsc[3]).toHaveTextContent("MSFT");
   });
 
-  it("sorts by Symbol when clicked", async () => {
+  it("sorts by Symbol", async () => {
     const user = userEvent.setup();
     render(
       <ScannerView
@@ -184,27 +178,81 @@ describe("ScannerView", () => {
       />,
     );
 
-    // Click on Symbol header
     const symbolHeader = screen.getByText("Symbol");
-    await user.click(symbolHeader);
+    await user.click(symbolHeader); // Set to Symbol Desc
 
-    // Default sort dir set to desc on new field or asc?
-    // Code says: if sortField !== field -> setSortDir("desc")
-    // Let's check.
-    // Symbols: AAPL, GOOGL, MSFT.
-    // Desc: MSFT, GOOGL, AAPL.
-
+    // Desc: MSFT, GOOGL, AAPL
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent("MSFT");
     expect(rows[2]).toHaveTextContent("GOOGL");
     expect(rows[3]).toHaveTextContent("AAPL");
+  });
 
-    // Click again to toggle asc
-    await user.click(symbolHeader);
-    const rowsAsc = screen.getAllByRole("row");
-    expect(rowsAsc[1]).toHaveTextContent("AAPL");
-    expect(rowsAsc[2]).toHaveTextContent("GOOGL");
-    expect(rowsAsc[3]).toHaveTextContent("MSFT");
+  it("sorts by Max Drawdown", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScannerView
+        data={mockData}
+        isLoading={false}
+        isRefreshing={false}
+        error={null}
+        onNavigateToSymbol={mockNavigate}
+        onScan={mockScan}
+      />,
+    );
+
+    const ddHeader = screen.getByText("Max Drawdown");
+    await user.click(ddHeader); // Set to DD Desc (Less negative is higher/better? No, usually numeric sort.)
+    // -2 > -5 > -10.
+    // So Desc: MSFT (-2), AAPL (-5), GOOGL (-10).
+
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("MSFT");
+    expect(rows[2]).toHaveTextContent("AAPL");
+    expect(rows[3]).toHaveTextContent("GOOGL");
+  });
+
+  it("sorts by Signals Count", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScannerView
+        data={mockData}
+        isLoading={false}
+        isRefreshing={false}
+        error={null}
+        onNavigateToSymbol={mockNavigate}
+        onScan={mockScan}
+      />,
+    );
+
+    const signalsHeader = screen.getByText("Signals");
+    await user.click(signalsHeader); // Set to Signals Desc
+
+    // Signals: MSFT (8), AAPL (5), GOOGL (2)
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("MSFT");
+    expect(rows[2]).toHaveTextContent("AAPL");
+    expect(rows[3]).toHaveTextContent("GOOGL");
+  });
+
+  it("navigates to symbol on row click", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScannerView
+        data={mockData}
+        isLoading={false}
+        isRefreshing={false}
+        error={null}
+        onNavigateToSymbol={mockNavigate}
+        onScan={mockScan}
+      />,
+    );
+
+    const aaplRow = screen.getByText("AAPL").closest("tr");
+    if (!aaplRow) throw new Error("Row not found");
+
+    await user.click(aaplRow);
+    expect(mockNavigate).toHaveBeenCalledWith("AAPL");
   });
 
   it("renders status badges correctly", () => {
@@ -231,7 +279,7 @@ describe("ScannerView", () => {
     expect(screen.getByText("CACHED")).toBeInTheDocument();
   });
 
-  it("renders data table", () => {
+  it("renders data table with correct values", () => {
     render(
       <ScannerView
         data={mockData}
@@ -245,7 +293,7 @@ describe("ScannerView", () => {
     expect(screen.getByText("AAPL")).toBeInTheDocument();
     expect(screen.getByText("10%")).toBeInTheDocument();
     expect(screen.getByText("GOOGL")).toBeInTheDocument();
-    expect(screen.getAllByText("-5%")).toHaveLength(2);
+    expect(screen.getAllByText("-5%")).toHaveLength(2); // One for Google Return, one for AAPL DD
   });
 
   it("renders error state", () => {

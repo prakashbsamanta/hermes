@@ -1,6 +1,6 @@
 """SQLAlchemy models for the data registry."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
@@ -15,6 +15,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
 
 
 class Base(DeclarativeBase):
@@ -36,8 +40,8 @@ class Instrument(Base):
     description = Column(Text, nullable=True)
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     
     # Relationships
     data_availability = relationship(
@@ -73,7 +77,7 @@ class DataAvailability(Base):
     file_size_mb = Column(Float, nullable=True)
     
     # Timestamps
-    last_updated = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_updated = Column(DateTime, default=utc_now, nullable=False)
     last_verified = Column(DateTime, nullable=True)
     
     # Relationships
@@ -116,7 +120,7 @@ class DataLoadLog(Base):
     error_message = Column(Text, nullable=True)
     
     # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     
     # Index for querying recent loads
     __table_args__ = (
@@ -146,7 +150,7 @@ class ScanResultCache(Base):
     last_signal_time = Column(Integer, nullable=True)
 
     # Cache Management
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     expires_at = Column(DateTime, nullable=False)
     scan_time_ms = Column(Integer, nullable=True)
 

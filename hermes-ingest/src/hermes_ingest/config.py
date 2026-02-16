@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings
 
@@ -33,7 +34,7 @@ class IngestSettings(BaseSettings):
     oci_prefix: str = "minute"  # Object prefix in bucket
 
     # Parquet compression
-    compression: str = "zstd"  # zstd | snappy | lz4 | gzip | uncompressed
+    compression: Literal['lz4', 'uncompressed', 'snappy', 'gzip', 'brotli', 'zstd'] = "zstd"
 
     # Rate limiting
     rate_limit_per_sec: float = 2.5

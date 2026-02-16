@@ -4,10 +4,15 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
 
+Compression = Literal['lz4', 'uncompressed', 'snappy', 'gzip', 'brotli', 'zstd']
+
 logger = logging.getLogger(__name__)
+
+
 
 
 class DataSink(ABC):
@@ -18,7 +23,7 @@ class DataSink(ABC):
     implement the storage-specific read/write/exists/list operations.
     """
 
-    def __init__(self, compression: str = "zstd"):
+    def __init__(self, compression: Compression = "zstd"):
         """Initialize the base sink.
 
         Args:

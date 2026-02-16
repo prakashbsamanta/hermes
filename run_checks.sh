@@ -106,7 +106,12 @@ log_step "Running Security Scan (Bandit - Vulnerabilities)"
 bandit -r src --exclude ./tests -ll -q
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Security Scan (Bandit)"; fi
 
-# D. TESTS & COVERAGE
+# D. DEPENDENCY AUDIT
+log_step "Running Dependency Audit (Pip-Audit)"
+python -m pip_audit
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Dependency Audit (Pip-Audit)"; fi
+
+# E. TESTS & COVERAGE
 log_step "Running Tests & Coverage (Threshold: 90%)"
 pytest tests/ --cov=src/hermes_data --cov-fail-under=90 --cov-report=term-missing
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Tests or Coverage (<90%)"; fi
@@ -136,8 +141,19 @@ if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Linting (Ruf
 log_step "Running Type Checker (Mypy - Static Analysis)"
 mypy src/hermes_ingest --ignore-missing-imports 2>/dev/null
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Type Checking (Mypy)"; fi
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Type Checking (Mypy)"; fi
 
-# C. TESTS & COVERAGE
+# C. SECURITY SCAN
+log_step "Running Security Scan (Bandit - Vulnerabilities)"
+bandit -r src --exclude ./tests -ll -q
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Security Scan (Bandit)"; fi
+
+# D. DEPENDENCY AUDIT
+log_step "Running Dependency Audit (Pip-Audit)"
+python -m pip_audit
+if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Dependency Audit (Pip-Audit)"; fi
+
+# E. TESTS & COVERAGE
 log_step "Running Tests & Coverage (Threshold: 90%)"
 pytest tests/ --cov=src/hermes_ingest --cov-fail-under=90 --cov-report=term-missing
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Tests or Coverage (<90%)"; fi

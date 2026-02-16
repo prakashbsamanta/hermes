@@ -13,7 +13,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "pytest-asyncio", "ruff"]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "ruff",
+    "mypy>=1.8.0",
+    "bandit>=1.7.0",
+    "pip-audit>=2.7.0",
+]
 cloud = ["boto3", "google-cloud-storage"]
 
 [build-system]
