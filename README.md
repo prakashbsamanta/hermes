@@ -39,6 +39,7 @@ graph TB
         B[FastAPI Server]
         C[MarketDataService]
         D[BacktestService]
+        K[ScannerService]
     end
     
     subgraph hermes-data
@@ -56,6 +57,7 @@ graph TB
     A --> B
     B --> C --> E
     B --> D --> E
+    B --> K --> E
     E --> F --> J
     E --> G
     E --> H --> I
@@ -337,9 +339,18 @@ Content-Type: application/json
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Running Tests & Quality Gates
 
-### All Tests (Ingest + Data + Backend)
+### 🛡️ The Guardian (All-in-One Check)
+
+Running the centralized quality gate script is the most reliable way to verify the entire project. This script runs linting, type checking, security scans, and tests (with coverage thresholds) for all packages.
+
+```bash
+# From the project root
+./run_checks.sh
+```
+
+### Manual Individual Tests
 
 ```bash
 # hermes-ingest tests
@@ -424,7 +435,7 @@ symbols = service.list_instruments()
 - [x] **Cloudflare R2** - Cloud storage with zero egress fees
 - [x] **Oracle OCI** - Cloud storage with generous free tier
 - [x] **zstd Compression** - Configurable Parquet compression
-- [ ] **Scanner/Screener** - Batch strategy execution across all stocks
+- [x] **Scanner/Screener** - Batch strategy execution across all stocks
 - [ ] **AWS S3 Provider** - Load data from AWS S3
 - [ ] **Redis Cache** - Distributed caching for multi-instance deployments
 - [ ] **Live Trading** - Connect to broker APIs
