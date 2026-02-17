@@ -10,8 +10,16 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from api.routes import router # noqa: E402
+from middleware import CorrelationMiddleware  # noqa: E402
+from hermes_data.logging import configure_logging  # noqa: E402
+
+# Configure structured logging
+configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
 
 app = FastAPI(title="Hermes Backtest API", version="0.1.0")
+
+# Use structured logging middleware
+app.add_middleware(CorrelationMiddleware)
 
 # CORS Configuration
 # Allow frontend (React) to access this API

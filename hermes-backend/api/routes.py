@@ -45,6 +45,21 @@ async def list_instruments():
     return get_market_data_service().list_instruments()
 
 
+@router.post("/instruments/sync", response_model=Dict[str, Any])
+async def sync_instruments():
+    """Sync instrument registry with storage."""
+    try:
+        count = get_market_data_service().data_service.sync_registry()
+        return {
+            "status": "success",
+            "message": f"Synced {count} instruments",
+            "count": count
+        }
+    except Exception as e:
+        logging.error(f"Sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/data/{symbol}", response_model=Dict[str, Any])
 async def get_market_data(symbol: str, timeframe: str = "1h"):
     try:

@@ -38,6 +38,9 @@ class DataSettings(BaseSettings):
     oci_access_key_id: Optional[str] = None
     oci_secret_access_key: Optional[str] = None
     oci_bucket_name: str = "hermes-market-data"
+    
+    # S3/R2/OCI Object Prefix
+    s3_prefix: str = "minute"
 
     model_config = {
         "env_prefix": "HERMES_",

@@ -64,7 +64,20 @@ class TestS3Provider:
         
         symbols = provider.list_symbols()
         assert symbols == ["AAPL", "GOOGL", "MSFT"]
+    
+    def test_list_symbols_empty_prefix(self, mock_boto3):
+        """Should list symbols from root when prefix is empty."""
+        provider = S3Provider("url", "key", "secret", "bucket", prefix="")
         
+        paginator = MagicMock()
+        provider._client.get_paginator.return_value = paginator
+        paginator.paginate.return_value = [{"Contents": [{"Key": "AAPL.parquet"}]}]
+        
+        symbols = provider.list_symbols()
+        assert symbols == ["AAPL"]
+        # Ensure paginate was called with Prefix=""
+        paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
+
     def test_list_symbols_error(self, provider):
         """Should handle errors when listing symbols."""
         provider._client.get_paginator.side_effect = Exception("Failed")

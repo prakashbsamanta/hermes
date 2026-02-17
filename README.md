@@ -269,6 +269,9 @@ HERMES_DATA_DIR=data/minute
 HERMES_SINK_TYPE=local
 HERMES_SINK_PATH=data/minute
 
+# S3/R2 Prefix (Default: "minute", leave empty for root)
+# HERMES_S3_PREFIX=minute
+
 # Cache
 HERMES_CACHE_ENABLED=true
 HERMES_CACHE_MAX_SIZE_MB=512
@@ -284,6 +287,21 @@ HERMES_REGISTRY_ENABLED=true
 # HERMES_R2_SECRET_ACCESS_KEY=your_secret_key
 # HERMES_R2_BUCKET_NAME=hermes-market-data
 ```
+
+## 🛠️ Logging & Diagnostics
+
+Hermes includes a unified structured logging system with request tracing.
+
+**Key Features:**
+- **Correlation ID:** Every request is tagged with a `correlation_id` to trace flow across services.
+- **JSON Logs:** Default format is JSON for easy parsing by tools like Datadog/ELK.
+- **Middleware:** Automatically logs request duration and status codes.
+
+To configure logging level:
+```bash
+LOG_LEVEL=DEBUG  # Default: INFO
+```
+
 
 ---
 

@@ -47,3 +47,5 @@
 [2026-02-15T19:25:00Z] [DONE] [FRONTEND] Added Month/Year selection panels to SmartCalendar.
 [2026-02-16T19:25:00Z] [SUCCESS] [TESTS] Fixed failing frontend tests in BacktestPage, ScannerView, DashboardHeader, AssetSelector. Improved coverage to ~85%. Resolved backend deprecation warnings (datetime.utcnow) and linting issues across all packages.
 [2026-02-16T19:40:00Z] [SUCCESS] [COVERAGE] Achieved 97.7% Frontend Test Coverage by adding comprehensive tests for Calendar, DateInput, and Command components. All quality checks passing.
+[2026-02-17 22:54:38] [DONE] [SYSTEM] Fixed asset listing (S3 prefix), date range crashes, and implemented unified JSON logging
+[2026-02-17 23:20:00] [DONE] [SYSTEM] Implemented start script with live logs and fixed S3 timezone filtering
