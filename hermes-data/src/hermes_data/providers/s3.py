@@ -67,7 +67,8 @@ class S3Provider(DataProvider):
         symbols = []
         try:
             paginator = self._client.get_paginator("list_objects_v2")
-            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=f"{self.prefix}/"):
+            prefix_arg = f"{self.prefix}/" if self.prefix else ""
+            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix_arg):
                 if "Contents" not in page:
                     continue
                     
@@ -93,7 +94,10 @@ class S3Provider(DataProvider):
         
         for symbol in symbols:
             try:
-                key = f"{self.prefix}/{symbol}.parquet"
+                if self.prefix:
+                    key = f"{self.prefix}/{symbol}.parquet"
+                else:
+                    key = f"{symbol}.parquet"
                 response = self._client.get_object(Bucket=self.bucket_name, Key=key)
                 data = response["Body"].read()
                 
@@ -132,9 +136,9 @@ class S3Provider(DataProvider):
             return df
             
         if start_date:
-            df = df.filter(pl.col("timestamp") >= pl.lit(start_date).str.to_datetime())
+            df = df.filter(pl.col("timestamp").dt.replace_time_zone(None) >= pl.lit(start_date).str.to_datetime())
         if end_date:
-            df = df.filter(pl.col("timestamp") <= pl.lit(end_date).str.to_datetime())
+            df = df.filter(pl.col("timestamp").dt.replace_time_zone(None) <= pl.lit(end_date).str.to_datetime())
             
         return df
 

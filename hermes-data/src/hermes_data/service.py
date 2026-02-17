@@ -76,6 +76,7 @@ class DataService:
                 secret_access_key=self.settings.r2_secret_access_key,
                 bucket_name=self.settings.r2_bucket_name,
                 region_name="auto",
+                prefix=self.settings.s3_prefix,
             )
 
         if self.settings.storage_provider == "oracle_object_storage":
@@ -91,6 +92,7 @@ class DataService:
                 secret_access_key=self.settings.oci_secret_access_key,
                 bucket_name=self.settings.oci_bucket_name,
                 region_name=self.settings.oci_region,
+                prefix=self.settings.s3_prefix,
             )
 
         raise ValueError(f"Unknown storage provider: {self.settings.storage_provider}")

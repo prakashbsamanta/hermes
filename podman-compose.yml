@@ -37,6 +37,7 @@ services:
       - .env
     environment:
       - HERMES_DATABASE_URL=postgresql://hermes:hermes_secret@postgres:5432/hermes
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Override storage provider to ensure consistent startup if needed, or rely on .env
       # We override DB URL because .env points to localhost
     volumes:
