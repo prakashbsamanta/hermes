@@ -92,111 +92,63 @@ hermes/
 
 ---
 
-## 🐳 Option 1: Run with Containers (Recommended)
+## 🏁 Getting Started
 
-The easiest way to run the full stack is with Podman (or Docker Compose).
+### Prerequisites
 
-### Step 1: Start PostgreSQL
+- **Python 3.11+**
+- **Node.js 18+**
+- **Docker** or **Podman** (for container mode)
+- **PostgreSQL 16** (can use containerized version)
 
-```bash
-# Start PostgreSQL container
-podman-compose up -d postgres
+### 🚀 Quick Start (Recommended)
 
-# Wait for it to be healthy
-podman-compose ps
-```
-
-### Step 2: Start All Services
+Use the unified startup script to run the application with real-time logs.
 
 ```bash
-# Start everything (postgres, backend, frontend)
-podman-compose up -d
+# Run with Containers (Default)
+./start_hermes.sh
 
-# Check status
-podman-compose ps
+# Run locally (uses local venv and node)
+./start_hermes.sh --mode local
+
+# View logs with DEBUG level
+./start_hermes.sh --level DEBUG
 ```
 
-### Step 3: Access the Application
-
-- **Dashboard**: http://localhost:5173
-- **API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-
-### Stopping Services
-
-```bash
-podman-compose down
-```
+**Options:**
+- `-m, --mode`: `container` (default) or `local`
+- `-l, --level`: `INFO` (default), `DEBUG`, `WARNING`, `ERROR`
+- `-b, --build`: Rebuild containers (container mode only)
 
 ---
 
-## 💻 Option 2: Local Development (Manual Setup)
+## 💻 Manual Setup (Advanced)
 
-For development, you'll want to run components individually.
+If you prefer to run components individually without the script:
 
 ### Step 1: Start PostgreSQL
 
 ```bash
-# Using Podman (simplest)
 podman-compose up -d postgres
-
-# OR using native PostgreSQL
-# Ensure PostgreSQL is running and create database:
-# createdb hermes
 ```
 
 ### Step 2: Setup hermes-data Package
 
 ```bash
-# Create and activate virtual environment
 cd hermes-data
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install in development mode
+source .venv/bin/activate
 pip install -e ".[dev]"
-
-# Run tests
-pytest tests/ -v
 ```
 
-### Step 3: Setup hermes-ingest Package (Data Ingestion)
-
-```bash
-cd hermes-ingest
-python3 -m venv venv
-source venv/bin/activate
-
-# Install with test dependencies
-pip install -e ".[test]"
-
-# For cloud storage (Cloudflare R2)
-pip install -e ".[cloud]"
-
-# Run tests
-pytest tests/ -v
-```
-
-### Step 4: Setup Backend
+### Step 3: Setup Backend
 
 ```bash
 cd hermes-backend
-
-# Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
-
-# Install dependencies (includes hermes-data)
 pip install -r requirements.txt
-
-# Configure environment
-cp ../.env.example .env
-# Edit .env with your settings
-
-# Run tests
-pytest tests/ -v
-
-# Start development server
 uvicorn main:app --reload --port 8000
 ```
 
@@ -204,15 +156,11 @@ uvicorn main:app --reload --port 8000
 
 ```bash
 cd hermes-frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-### Step 5: Access Application
+### Access Application
 
 - **Dashboard**: http://localhost:5173
 - **API**: http://localhost:8000
