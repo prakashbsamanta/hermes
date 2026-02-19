@@ -1,5 +1,6 @@
 """Test fixtures for hermes-data tests."""
 
+from typing import Generator
 import tempfile
 from pathlib import Path
 
@@ -31,7 +32,7 @@ def sample_ohlcv_data() -> pl.DataFrame:
 
 
 @pytest.fixture
-def temp_data_dir(sample_ohlcv_data: pl.DataFrame) -> Path:
+def temp_data_dir(sample_ohlcv_data: pl.DataFrame) -> Generator[Path, None, None]:
     """Create a temporary directory with sample parquet files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         data_path = Path(tmpdir)

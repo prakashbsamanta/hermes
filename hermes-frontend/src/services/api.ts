@@ -8,6 +8,11 @@ export interface BacktestRequest {
   params: Record<string, unknown>;
   initial_cash?: number;
   mode?: "vector" | "event";
+  timeframe?: string;
+  start_date?: string;
+  end_date?: string;
+  slippage?: number;
+  commission?: number;
 }
 
 export interface ChartPoint {

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError  # type: ignore
 
 from hermes_data.providers.s3 import S3Provider
 

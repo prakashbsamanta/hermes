@@ -18,7 +18,12 @@ class BacktestEngine:
         """
         logging.info("Generating signals...")
         # 1. Generate Signals (1, -1, 0)
-        df = strategy.generate_signals(data)
+        # If signal column already exists (e.g. from MTF broadcasting), skip generation.
+        if "signal" in data.columns:
+            logging.info("Signal column already present. Skipping signal generation.")
+            df = data
+        else:
+            df = strategy.generate_signals(data)
         
         # 2. Derive Positions
         # If Signal=1 (Buy), we hold position (1) until Signal=-1 (Sell).

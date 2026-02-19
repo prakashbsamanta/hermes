@@ -47,10 +47,69 @@ class BacktestService:
         if request.mode == "event":
             return self._run_event_backtest(request, df, strategy_cls)
             
-        # 4. Run Vector Engine (Default)
+        # 4. Run Vector Engine
+        # Support Multi-Timeframe (MTF)
+        # If execution is vector, we execute on the most granular data (minute),
+        # but the strategy might run on a higher timeframe (e.g. "1h").
+        
+        execution_df = df
+        
+        # If analysis timeframe is different from raw data (1m), we resample
+        # Note: We assume raw data is 1m. If request.timeframe is > 1m, we resample for analysis.
+        # If analysis timeframe is different from raw data (1m), we resample
+        # Note: We assume raw data is 1m. If request.timeframe is > 1m, we resample for analysis.
+        if request.timeframe != "1m":
+            logging.info(f"Resampling data to {request.timeframe} for strategy analysis...")
+            analysis_df = self.market_data_service.resample_data(execution_df, interval=request.timeframe)
+        else:
+            analysis_df = execution_df 
+
+        # Run Strategy on Analysis DF
+        logging.info("Running strategy on analysis data...")
+        strategy_result_df = strategy.generate_signals(analysis_df)
+        
+        if request.timeframe != "1m":
+            # Broadcast signals and indicators back to execution (1m) dataframe
+            # We use join_asof to forward-fill the higher timeframe signals to the minute data
+            logging.info("Broadcasting signals to execution timeframe (1m)...")
+            
+            # Identify columns to broadcast (Signal + Indicators)
+            # We exclude OHLCV as execution_df already has them (at 1m resolution)
+            exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "symbol"}
+            broadcast_cols = [c for c in strategy_result_df.columns if c not in exclude_cols]
+            
+            if "signal" not in broadcast_cols and "signal" in strategy_result_df.columns:
+                 broadcast_cols.append("signal")
+
+            # CRITICAL: Prevent Look-Ahead Bias
+            # The strategy runs on aggregated bars (e.g. 1h).
+            # The bar at 10:00 contains data from 10:00 to 10:59.
+            # The signal is generated at 10:59 (close).
+            # If we join this signal to 10:05 minute data, we are peeking into the future.
+            # We must SHIFT the signals by 1 period so they become available only at the START of the next bar (11:00).
+            
+            shifted_strategy = strategy_result_df.select(
+                [pl.col("timestamp")] + 
+                [pl.col(c).shift(1) for c in broadcast_cols]
+            )
+
+            # Polars join_asof
+            # backward strategy: for a time t in execution, find the latest time t' <= t in analysis
+            execution_df = execution_df.sort("timestamp").join_asof(
+                shifted_strategy.sort("timestamp"),
+                on="timestamp",
+                strategy="backward"
+            )
+        else:
+            execution_df = strategy_result_df
+
+        if request.mode == "event":
+            return self._run_event_backtest(request, execution_df, strategy_cls)
+            
+        # Run Vector Engine on the Execution DF (Minute resolution with signals)
         engine = BacktestEngine(initial_cash=request.initial_cash)
         try:
-            result_df = engine.run(strategy, df)
+            result_df = engine.run(strategy, execution_df)
         except Exception as e:
             raise RuntimeError(f"Backtest execution failed: {str(e)}")
             
@@ -195,7 +254,7 @@ class BacktestService:
 
     def _format_response(self, request, metrics, result_df, chart_df):
          # Identify Indicator Columns
-        exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "equity", "trade_action"}
+        exclude_cols = {"timestamp", "open", "high", "low", "close", "volume", "signal", "position", "strategy_return", "market_return", "equity", "trade_action"}
         indicator_cols = [c for c in result_df.columns if c not in exclude_cols and result_df[c].dtype in [pl.Float64, pl.Float32]]
         
         # Convert to Output Models
