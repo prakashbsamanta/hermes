@@ -20,7 +20,7 @@ class MemoryCache(CacheProvider):
     Evicts oldest entries when memory limit is exceeded.
     """
 
-    def __init__(self, max_size_mb: int = 512):
+    def __init__(self, max_size_mb: int | float = 512):
         """Initialize the memory cache.
         
         Args:

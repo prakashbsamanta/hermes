@@ -80,7 +80,19 @@ strict = true
 warn_return_any = false
 warn_unused_ignores = false
 ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
 
 [[tool.mypy.overrides]]
 module = ["boto3", "boto3.*", "botocore", "botocore.*", "mypy_boto3_s3", "moto", "moto.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests", "tests.*"]
+strict = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_calls = false
+
+

@@ -32,6 +32,7 @@ SCAN_CACHE_TTL_HOURS = 24
 def _compute_params_hash(
     params: Dict,
     mode: str,
+    timeframe: str,
     start_date: Optional[str],
     end_date: Optional[str],
 ) -> str:
@@ -40,6 +41,7 @@ def _compute_params_hash(
         {
             "params": params,
             "mode": mode,
+            "timeframe": timeframe,
             "start_date": start_date,
             "end_date": end_date,
         },
@@ -95,7 +97,11 @@ class ScannerService:
 
         # 3. Compute params hash for cache lookups
         params_hash = _compute_params_hash(
-            request.params, request.mode, request.start_date, request.end_date
+            request.params,
+            request.mode,
+            request.timeframe,
+            request.start_date,
+            request.end_date,
         )
 
         # 4. CHECK: Try to load cached results from Postgres
@@ -170,6 +176,7 @@ class ScannerService:
                     params=request.params,
                     initial_cash=request.initial_cash,
                     mode=request.mode,
+                    timeframe=request.timeframe,
                     start_date=request.start_date,
                     end_date=request.end_date,
                 )

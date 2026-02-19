@@ -2,9 +2,9 @@ import io
 import logging
 from typing import List, Optional, Tuple
 
-import boto3
+import boto3  # type: ignore
 import polars as pl
-from botocore.config import Config
+from botocore.config import Config  # type: ignore
 
 from .base import DataProvider
 

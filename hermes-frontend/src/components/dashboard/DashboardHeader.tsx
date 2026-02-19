@@ -44,6 +44,9 @@ interface DashboardHeaderProps {
   mode: "vector" | "event";
   onModeChange: (val: "vector" | "event") => void;
 
+  timeframe: string;
+  setTimeframe: (val: string) => void;
+
   start_date: string | undefined;
   setStartDate: (val: string) => void;
   end_date: string | undefined;
@@ -65,6 +68,8 @@ export function DashboardHeader({
   isRunning,
   mode = "vector",
   onModeChange,
+  timeframe = "1h",
+  setTimeframe,
   start_date,
   setStartDate,
   end_date,
@@ -202,6 +207,27 @@ export function DashboardHeader({
               <SelectContent>
                 <SelectItem value="vector">Fast Vector</SelectItem>
                 <SelectItem value="event">Event Driven</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Timeframe Selector */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground font-mono uppercase">
+              Timeframe
+            </Label>
+            <Select value={timeframe} onValueChange={setTimeframe}>
+              <SelectTrigger className="w-[100px] bg-background h-9 text-xs">
+                <SelectValue placeholder="1h" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1m">1 Min</SelectItem>
+                <SelectItem value="5m">5 Min</SelectItem>
+                <SelectItem value="15m">15 Min</SelectItem>
+                <SelectItem value="30m">30 Min</SelectItem>
+                <SelectItem value="1h">1 Hour</SelectItem>
+                <SelectItem value="4h">4 Hour</SelectItem>
+                <SelectItem value="1d">1 Day</SelectItem>
               </SelectContent>
             </Select>
           </div>

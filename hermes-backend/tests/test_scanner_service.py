@@ -199,8 +199,8 @@ class TestScannerService:
         """Same params produce the same hash."""
         from services.scanner_service import _compute_params_hash
 
-        h1 = _compute_params_hash({"period": 14}, "vector", None, None)
-        h2 = _compute_params_hash({"period": 14}, "vector", None, None)
+        h1 = _compute_params_hash({"period": 14}, "vector", "1h", None, None)
+        h2 = _compute_params_hash({"period": 14}, "vector", "1h", None, None)
         assert h1 == h2
         assert len(h1) == 64  # SHA-256
 
@@ -208,11 +208,13 @@ class TestScannerService:
         """Different params produce different hashes."""
         from services.scanner_service import _compute_params_hash
 
-        h1 = _compute_params_hash({"period": 14}, "vector", None, None)
-        h2 = _compute_params_hash({"period": 20}, "vector", None, None)
-        h3 = _compute_params_hash({"period": 14}, "event", None, None)
+        h1 = _compute_params_hash({"period": 14}, "vector", "1h", None, None)
+        h2 = _compute_params_hash({"period": 20}, "vector", "1h", None, None)
+        h3 = _compute_params_hash({"period": 14}, "event", "1h", None, None)
+        h4 = _compute_params_hash({"period": 14}, "vector", "1d", None, None)
         assert h1 != h2
         assert h1 != h3
+        assert h1 != h4
 
 
 class TestScanEndpoint:

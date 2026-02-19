@@ -20,15 +20,14 @@ def resample_data(df: pl.DataFrame, interval: str = "1d") -> pl.DataFrame:
         df.sort("timestamp")
         .group_by_dynamic("timestamp", every=interval)
         .agg([
-            pl.col("open").first().alias("open"),
-            pl.col("high").max().alias("high"),
-            pl.col("low").min().alias("low"),
-            pl.col("close").last().alias("close"),
-            pl.col("volume").sum().alias("volume"),
-            pl.col("symbol").first().alias("symbol")
+            pl.col("open").first(),
+            pl.col("high").max(),
+            pl.col("low").min(),
+            pl.col("close").last(),
+            pl.col("volume").sum(),
+            pl.col("symbol").first()
         ])
     )
-    
     return q
 
 def merge_mtf(minute_df: pl.DataFrame, higher_tf_df: pl.DataFrame, suffix: str = "_htf") -> pl.DataFrame:
@@ -49,17 +48,16 @@ def merge_mtf(minute_df: pl.DataFrame, higher_tf_df: pl.DataFrame, suffix: str =
     # ALIGNMENT STRATEGY:
     # 1. Rename columns in HTF
     # Rename ALL columns except timestamp to avoid collisions
-    cols_to_rename = [col for col in higher_tf_df.columns if col != "timestamp"]
-    htf_renamed = higher_tf_df.rename({
-        col: f"{col}{suffix}" for col in cols_to_rename
-    })
+    # Renaming logic
+    rename_map = {col: f"{col}{suffix}" for col in higher_tf_df.columns if col != "timestamp"}
+    htf_renamed = higher_tf_df.rename(rename_map)
     
     # 2. Join_asof (Left Join)
     # Join minute_df with htf_renamed on timestamp.
     # distinct strategy='backward' means: for a minute row, find the LATEST htf row that is <= minute_time.
     # This effectively forward fills the Daily bar onto the intraday minutes.
     
-    merged = minute_df.join_asof(
+    merged = minute_df.sort("timestamp").join_asof(
         htf_renamed.sort("timestamp"),
         on="timestamp",
         strategy="backward"
