@@ -235,7 +235,8 @@ export const ChartComponent: React.FC<ChartProps> = ({
             type: signalAtTime.type,
             price: price,
             time: signalAtTime.time,
-            quantity: (signalAtTime as unknown as { quantity?: number }).quantity,
+            quantity: (signalAtTime as unknown as { quantity?: number })
+              .quantity,
           });
         } else {
           setTooltipData(null);
@@ -342,7 +343,10 @@ export const ChartComponent: React.FC<ChartProps> = ({
         <div
           className="absolute z-50 px-3 py-2 rounded-lg shadow-xl border text-xs font-mono pointer-events-none transition-opacity duration-75"
           style={{
-            left: Math.min(tooltipData.x + 15, (chartContainerRef.current?.clientWidth || 400) - 200),
+            left: Math.min(
+              tooltipData.x + 15,
+              (chartContainerRef.current?.clientWidth || 400) - 200,
+            ),
             top: tooltipData.y + 15,
             backgroundColor: "rgba(15, 23, 42, 0.95)",
             backdropFilter: "blur(12px)",
@@ -374,7 +378,8 @@ export const ChartComponent: React.FC<ChartProps> = ({
               </span>{" "}
               <span className="text-slate-400">@</span>{" "}
               <span className="text-white font-semibold">
-                ₹{tooltipData.price.toLocaleString(undefined, {
+                ₹
+                {tooltipData.price.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -384,7 +389,8 @@ export const ChartComponent: React.FC<ChartProps> = ({
             <div className="text-[11px] mb-0.5">
               <span className="text-slate-400">Price:</span>{" "}
               <span className="text-white font-semibold">
-                ₹{tooltipData.price.toLocaleString(undefined, {
+                ₹
+                {tooltipData.price.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}

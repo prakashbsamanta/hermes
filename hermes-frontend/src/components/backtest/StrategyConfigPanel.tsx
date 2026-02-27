@@ -4,11 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import {
-  RefreshCw,
-  SlidersHorizontal,
-  ShieldCheck,
-} from "lucide-react";
+import { RefreshCw, SlidersHorizontal, ShieldCheck } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -22,9 +18,11 @@ import { z } from "zod";
 import type { StrategyParamsMap, RiskParamsState } from "./strategyTypes";
 import { DEFAULT_RISK_PARAMS } from "./strategyTypes";
 export { DEFAULT_RISK_PARAMS } from "./strategyTypes";
-export type { StrategyParam, StrategyParamsMap, RiskParamsState } from "./strategyTypes";
-
-
+export type {
+  StrategyParam,
+  StrategyParamsMap,
+  RiskParamsState,
+} from "./strategyTypes";
 
 // Zod validation schema for risk parameters
 const riskParamsSchema = z.object({
@@ -36,7 +34,7 @@ const riskParamsSchema = z.object({
   pct_equity: z
     .number()
     .min(0.005, "Risk per trade must be at least 0.5%")
-    .max(0.10, "Risk per trade cannot exceed 10% of total capital"),
+    .max(0.1, "Risk per trade cannot exceed 10% of total capital"),
   atr_multiplier: z
     .number()
     .min(0.5, "ATR multiplier must be at least 0.5")
@@ -52,7 +50,6 @@ const riskParamsSchema = z.object({
 });
 
 type RiskValidationErrors = Partial<Record<keyof RiskParamsState, string>>;
-
 
 // Configuration Schema for Supported Strategies
 const STRATEGY_CONFIGS: StrategyParamsMap = {
@@ -246,25 +243,25 @@ export function StrategyConfigPanel({
     });
   };
 
-  const validateRiskParams = useCallback(
-    (params: RiskParamsState): boolean => {
-      const result = riskParamsSchema.safeParse(params);
-      if (!result.success) {
-        const errors: RiskValidationErrors = {};
-        result.error.issues.forEach((issue) => {
-          const field = issue.path[0] as keyof RiskParamsState;
-          errors[field] = issue.message;
-        });
-        setRiskErrors(errors);
-        return false;
-      }
-      setRiskErrors({});
-      return true;
-    },
-    [],
-  );
+  const validateRiskParams = useCallback((params: RiskParamsState): boolean => {
+    const result = riskParamsSchema.safeParse(params);
+    if (!result.success) {
+      const errors: RiskValidationErrors = {};
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as keyof RiskParamsState;
+        errors[field] = issue.message;
+      });
+      setRiskErrors(errors);
+      return false;
+    }
+    setRiskErrors({});
+    return true;
+  }, []);
 
-  const handleRiskChange = (key: keyof RiskParamsState, value: string | number) => {
+  const handleRiskChange = (
+    key: keyof RiskParamsState,
+    value: string | number,
+  ) => {
     if (onRiskParamsChange) {
       const newParams = {
         ...riskParams,
@@ -305,12 +302,8 @@ export function StrategyConfigPanel({
               min={param.min}
               max={param.max}
               step={param.step || 1}
-              value={[
-                Number(currentParams[param.key] || param.defaultValue),
-              ]}
-              onValueChange={(val: number[]) =>
-                handleChange(param.key, val[0])
-              }
+              value={[Number(currentParams[param.key] || param.defaultValue)]}
+              onValueChange={(val: number[]) => handleChange(param.key, val[0])}
               className="w-full"
             />
           </div>
@@ -368,14 +361,9 @@ export function StrategyConfigPanel({
               </Label>
               <Select
                 value={riskParams.sizing_method}
-                onValueChange={(val) =>
-                  handleRiskChange("sizing_method", val)
-                }
+                onValueChange={(val) => handleRiskChange("sizing_method", val)}
               >
-                <SelectTrigger
-                  id="sizing-method"
-                  className="h-8 text-xs"
-                >
+                <SelectTrigger id="sizing-method" className="h-8 text-xs">
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,36 +410,36 @@ export function StrategyConfigPanel({
             {/* % Equity (visible when sizing_method is 'pct_equity' or 'atr_based') */}
             {(riskParams.sizing_method === "pct_equity" ||
               riskParams.sizing_method === "atr_based") && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Capital Allocation
-                    </Label>
-                    <div className="font-mono text-xs text-foreground bg-accent/50 px-1.5 py-0.5 rounded">
-                      {(riskParams.pct_equity * 100).toFixed(1)}%
-                    </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Capital Allocation
+                  </Label>
+                  <div className="font-mono text-xs text-foreground bg-accent/50 px-1.5 py-0.5 rounded">
+                    {(riskParams.pct_equity * 100).toFixed(1)}%
                   </div>
-                  <Slider
-                    id="pct-equity"
-                    min={0.005}
-                    max={0.20}
-                    step={0.005}
-                    value={[riskParams.pct_equity]}
-                    onValueChange={(val: number[]) =>
-                      handleRiskChange("pct_equity", val[0])
-                    }
-                    className="w-full"
-                  />
-                  <p className="text-[10px] text-muted-foreground/70">
-                    Fraction of total equity allocated per trade.
-                  </p>
-                  {riskErrors.pct_equity && (
-                    <p className="text-[10px] text-destructive font-medium mt-1">
-                      ⚠ {riskErrors.pct_equity}
-                    </p>
-                  )}
                 </div>
-              )}
+                <Slider
+                  id="pct-equity"
+                  min={0.005}
+                  max={0.2}
+                  step={0.005}
+                  value={[riskParams.pct_equity]}
+                  onValueChange={(val: number[]) =>
+                    handleRiskChange("pct_equity", val[0])
+                  }
+                  className="w-full"
+                />
+                <p className="text-[10px] text-muted-foreground/70">
+                  Fraction of total equity allocated per trade.
+                </p>
+                {riskErrors.pct_equity && (
+                  <p className="text-[10px] text-destructive font-medium mt-1">
+                    ⚠ {riskErrors.pct_equity}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* ATR Multiplier (visible when sizing_method is 'atr_based') */}
             {riskParams.sizing_method === "atr_based" && (
@@ -572,4 +560,3 @@ export function StrategyConfigPanel({
     </Card>
   );
 }
-
