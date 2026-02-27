@@ -2,8 +2,6 @@ import pytest
 import datetime
 from unittest.mock import MagicMock, patch
 import polars as pl
-from typing import Optional
-import io
 import hashlib
 
 from hermes_data.cache.postgres import PostgresCache
@@ -46,7 +44,6 @@ def test_get_cache_miss(pg_cache):
 
 @patch("hermes_data.cache.postgres.datetime")
 def test_get_cache_expired(mock_datetime, pg_cache):
-    import datetime
     mock_datetime.now.return_value = datetime.datetime.now(datetime.timezone.utc)
     
     session_mock = MagicMock()
@@ -65,7 +62,6 @@ def test_get_cache_expired(mock_datetime, pg_cache):
 @patch("hermes_data.cache.postgres.datetime")
 @patch.object(PostgresCache, '_deserialize')
 def test_get_cache_hit(mock_deserialize, mock_datetime, pg_cache):
-    import datetime
     mock_datetime.now.return_value = datetime.datetime.now(datetime.timezone.utc)
     
     session_mock = MagicMock()
@@ -110,7 +106,6 @@ def test_set_size_too_large(mock_serialize, pg_cache):
 @patch("hermes_data.cache.postgres.datetime")
 @patch.object(PostgresCache, '_serialize')
 def test_set_success(mock_serialize, mock_datetime, pg_cache):
-    import datetime
     mock_datetime.now.return_value = datetime.datetime.now(datetime.timezone.utc)
     mock_serialize.return_value = b"testdata"
     
@@ -129,7 +124,6 @@ def test_set_success(mock_serialize, mock_datetime, pg_cache):
 @patch("hermes_data.cache.postgres.datetime")
 @patch.object(PostgresCache, '_serialize')
 def test_set_evicts_lru(mock_serialize, mock_datetime, pg_cache):
-    import datetime
     mock_datetime.now.return_value = datetime.datetime.now(datetime.timezone.utc)
     mock_serialize.return_value = b"testdata"
     
