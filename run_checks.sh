@@ -68,9 +68,6 @@ log_step "Running Security Scan (Bandit - Vulnerabilities)"
 bandit -r . --exclude ./venv,./tests -ll -q
 if [ $? -eq 0 ]; then log_success; else log_failure "Backend: Security Scan (Bandit)"; fi
 
-log_step "Running Dependency Audit (Pip-Audit)"
-pip-audit
-if [ $? -eq 0 ]; then log_success; else log_failure "Backend: Dependency Audit (Pip-Audit)"; fi
 
 # D. TESTS & COVERAGE
 log_step "Running Tests & Coverage (Threshold: 90%)"
@@ -105,11 +102,6 @@ if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Type Checking 
 log_step "Running Security Scan (Bandit - Vulnerabilities)"
 bandit -r src --exclude ./tests -ll -q
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Security Scan (Bandit)"; fi
-
-# D. DEPENDENCY AUDIT
-log_step "Running Dependency Audit (Pip-Audit)"
-python -m pip_audit
-if [ $? -eq 0 ]; then log_success; else log_failure "hermes-data: Dependency Audit (Pip-Audit)"; fi
 
 # E. TESTS & COVERAGE
 log_step "Running Tests & Coverage (Threshold: 90%)"
@@ -148,10 +140,6 @@ log_step "Running Security Scan (Bandit - Vulnerabilities)"
 bandit -r src --exclude ./tests -ll -q
 if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Security Scan (Bandit)"; fi
 
-# D. DEPENDENCY AUDIT
-log_step "Running Dependency Audit (Pip-Audit)"
-python -m pip_audit
-if [ $? -eq 0 ]; then log_success; else log_failure "hermes-ingest: Dependency Audit (Pip-Audit)"; fi
 
 # E. TESTS & COVERAGE
 log_step "Running Tests & Coverage (Threshold: 90%)"

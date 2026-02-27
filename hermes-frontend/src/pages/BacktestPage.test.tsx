@@ -65,6 +65,27 @@ vi.mock("@/components/layout/DashboardLayout", () => ({
 vi.mock("@/components/backtest/StrategyConfigPanel", () => ({
   StrategyConfigPanel: () => <div>Config Panel</div>,
   StrategyParamInput: () => <div>Param Input</div>,
+  DEFAULT_RISK_PARAMS: {
+    sizing_method: "pct_equity",
+    risk_pct: 1,
+    fixed_quantity: 1,
+    atr_period: 14,
+    atr_multiplier: 1,
+    hard_stop_loss_pct: null,
+    hard_take_profit_pct: null,
+  },
+}));
+
+vi.mock("@/components/backtest/strategyTypes", () => ({
+  DEFAULT_RISK_PARAMS: {
+    sizing_method: "pct_equity",
+    risk_pct: 1,
+    fixed_quantity: 1,
+    atr_period: 14,
+    atr_multiplier: 1,
+    hard_stop_loss_pct: null,
+    hard_take_profit_pct: null,
+  },
 }));
 
 vi.mock("framer-motion", () => ({
@@ -247,7 +268,6 @@ describe("BacktestPage", () => {
     render(<BacktestPage />);
 
     // To trigger handleScan, we must be in batch mode (default) and click Run
-    // const header = screen.getByTestId("dashboard-header");
     const runBtn = screen.getByText("Run Mock");
     fireEvent.click(runBtn);
 
@@ -258,6 +278,19 @@ describe("BacktestPage", () => {
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringContaining("Scan completed"),
     );
+  });
+
+  it("handles scan failure via handleScan", async () => {
+    // eslint-disable-next-line
+    (api.runScan as any).mockRejectedValue(new Error("Database error"));
+
+    render(<BacktestPage />);
+    const runBtn = screen.getByText("Run Mock");
+    fireEvent.click(runBtn);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Database error");
+    });
   });
 
   it("handles navigation to symbol from scanner", async () => {

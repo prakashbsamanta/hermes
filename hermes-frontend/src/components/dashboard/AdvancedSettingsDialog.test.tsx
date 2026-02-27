@@ -77,5 +77,24 @@ describe("AdvancedSettingsDialog", () => {
     const input = screen.getByLabelText("Commission ($)");
     fireEvent.change(input, { target: { value: "2.0" } });
     expect(setCommission).toHaveBeenCalledWith(2.0);
+
+    // Test NaN fallback
+    fireEvent.change(input, { target: { value: "" } });
+    expect(setCommission).toHaveBeenCalledWith(0);
+  });
+
+  it("updates slippage on invalid change (NaN fallback)", () => {
+    const setSlippage = vi.fn();
+    const props = {
+      slippage: 0.1,
+      setSlippage,
+      commission: 0.0,
+      setCommission: vi.fn(),
+    };
+    render(<AdvancedSettingsDialog {...props} />);
+
+    const input = screen.getByLabelText("Slippage (%)");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(setSlippage).toHaveBeenCalledWith(0);
   });
 });

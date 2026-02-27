@@ -36,6 +36,37 @@ describe("API Service", () => {
     expect(data).toEqual(mockResponse);
   });
 
+  it("runBacktestAsync calls correct endpoint", async () => {
+    const mockResponse = { task_id: "test-task-123", status: "processing" };
+    vi.mocked(axios.post).mockResolvedValue({ data: mockResponse });
+
+    const payload = {
+      symbol: "AAPL",
+      strategy: "RSI",
+      params: {},
+    };
+
+    const data = await api.runBacktestAsync(
+      payload as unknown as import("./api").BacktestRequest,
+    );
+    expect(axios.post).toHaveBeenCalledWith(
+      "http://localhost:8000/backtest/async",
+      payload,
+    );
+    expect(data).toEqual(mockResponse);
+  });
+
+  it("pollBacktestStatus calls correct endpoint", async () => {
+    const mockResponse = { task_id: "test-task-123", status: "completed" };
+    vi.mocked(axios.get).mockResolvedValue({ data: mockResponse });
+
+    const data = await api.pollBacktestStatus("test-task-123");
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8000/backtest/status/test-task-123",
+    );
+    expect(data).toEqual(mockResponse);
+  });
+
   it("runScan calls correct endpoint", async () => {
     const mockResponse = { results: [] };
     vi.mocked(axios.post).mockResolvedValue({ data: mockResponse });
