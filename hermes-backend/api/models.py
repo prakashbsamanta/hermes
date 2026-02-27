@@ -1,6 +1,17 @@
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 
+
+class RiskParams(BaseModel):
+    """Risk management parameters for position sizing."""
+    sizing_method: str = "fixed"  # "fixed", "pct_equity", "atr_based"
+    fixed_quantity: float = 10.0
+    pct_equity: float = 0.02  # Fraction of equity to risk per trade
+    atr_multiplier: float = 1.5
+    max_position_pct: float = 0.25  # Max 25% in single position
+    stop_loss_pct: float = 0.05  # 5% stop loss
+
+
 class BacktestRequest(BaseModel):
     symbol: str
     strategy: str  # e.g. "SMACrossover"
@@ -12,6 +23,7 @@ class BacktestRequest(BaseModel):
     start_date: str | None = None # "YYYY-MM-DD"
     end_date: str | None = None # "YYYY-MM-DD"
     timeframe: str = "1h" # Analysis timeframe: "1m", "5m", "15m", "30m", "1h", "4h", "1d"
+    risk_params: RiskParams = RiskParams()  # Risk management configuration
 
 class ChartPoint(BaseModel):
     time: int # Unix timestamp (seconds) or formatted string
@@ -44,7 +56,23 @@ class BacktestResponse(BaseModel):
     indicators: Dict[str, List[IndicatorPoint]] = {}
     status: str = "success"
     error: Optional[str] = None
+    task_id: Optional[str] = None  # For async mode
 
+
+class BacktestTaskResponse(BaseModel):
+    """Immediate response when backtest is queued asynchronously."""
+    task_id: str
+    status: str = "processing"
+    message: str = "Backtest submitted. Poll /backtest/status/{task_id} for results."
+
+
+class BacktestStatusResponse(BaseModel):
+    """Response for async backtest status polling."""
+    task_id: str
+    status: str  # "processing", "completed", "failed"
+    progress: Optional[float] = None  # 0.0 - 1.0
+    result: Optional[BacktestResponse] = None
+    error: Optional[str] = None
 
 class ScanRequest(BaseModel):
     strategy: str
