@@ -123,8 +123,10 @@ class BacktestService:
         return self._format_response(request, metrics, result_df, chart_df)
 
     def _run_event_backtest(self, request, df, strategy_cls):
-        from engine.event_engine import EventEngine, MockExecutionHandler
-        from engine.events import MarketEvent, SignalEvent, FillEvent
+        from engine.event_engine import EventEngine
+        from engine.events import MarketEvent
+        from engine.portfolio import PortfolioManager, RiskParams
+        from engine.execution import VolumeAwareExecutionHandler
         
         # Setup Engine
         engine = EventEngine()
@@ -134,77 +136,37 @@ class BacktestService:
         strategy = strategy_cls(params=request.params)
         strategy.set_bus(bus)
         engine.register_strategy(strategy)
+
+        # Map API RiskParams to engine RiskParams
+        risk_params = RiskParams(
+            sizing_method=request.risk_params.sizing_method,
+            fixed_quantity=request.risk_params.fixed_quantity,
+            pct_equity=request.risk_params.pct_equity,
+            atr_multiplier=request.risk_params.atr_multiplier,
+            max_position_pct=request.risk_params.max_position_pct,
+            stop_loss_pct=request.risk_params.stop_loss_pct,
+        )
         
-        # Setup Execution Handler
-        _ = MockExecutionHandler(bus, slippage=request.slippage, commission=request.commission)
+        # Setup Portfolio Manager (subscribes to Signal, Fill, Market events)
+        portfolio = PortfolioManager(
+            bus=bus,
+            initial_cash=request.initial_cash,
+            risk_params=risk_params,
+        )
+
+        # Setup Volume-Aware Execution Handler
+        execution = VolumeAwareExecutionHandler(
+            bus=bus,
+            slippage=request.slippage,
+            commission=request.commission,
+            max_participation_rate=0.10,
+        )
         
-        # Collect Results
-        equity_curve = [] # Time, Value
-        signals = []
+        # Collect visualization data
         candles = []
-        
-        # State
-        cash = request.initial_cash
-        position = 0
-        equity = cash
-        
-        # Result Collector
-        # In a real system, this would be a "Portfolio" or "Statistics" subscriber
-        # For now, we subscribe locally via closure or class
-        
-        def on_fill(event: FillEvent):
-            nonlocal cash, position, equity
-            cost = event.quantity * (event.fill_cost or 0.0)
-            if event.direction == "BUY":
-                cash -= cost
-                position += event.quantity
-            else:
-                cash += cost
-                position -= event.quantity
-            
-            # Recalc Equity (Approximate at fill time)
-            # Equity = Cash + Position * CurrentPrice
-            # We need current price. Fill event usually has fill price.
-            # Using fill price for simplicity
-            equity = cash + (position * (event.fill_cost or 0.0)) 
-            
-        bus.subscribe(FillEvent, on_fill)
-        
-        def on_signal(event: SignalEvent):
-            nonlocal position
-            # Simply record signals for visualization
-            # Logic: If Signal says LONG and we are FLAT, we initiate BUY order via ExecutionHandler?
-            # MockExecutionHandler listens to ORDER events.
-            # We need a component to translate Signal -> Order.
-            # Usually "Portfolio" or "RiskModel".
-            # For this simple "Backtest", let's attach a "SimplePortfolio" logic here.
-            
-            # Simple Portfolio Logic:
-            # If LONG signal: Buy 1 unit if flat.
-            # If EXIT signal: Sell all if long.
-            from engine.events import OrderEvent
-            
-            order = None
-            if event.signal_type == "LONG" and position == 0:
-                order = OrderEvent(time=event.time, symbol=event.symbol, order_type="MARKET", quantity=10, direction="BUY")
-            elif event.signal_type == "EXIT" and position > 0:
-                order = OrderEvent(time=event.time, symbol=event.symbol, order_type="MARKET", quantity=position, direction="SELL")
-                
-            if order:
-                bus.publish(order)
-                
-            # Visualization
-             # We need price for the signal marker.
-             # Ideally signal event has it (we didn't add it in RSI logic explicitly, but we should)
-             # Let's assume RSI logic adds price? No, we didn't add price to SignalEvent in RSI.
-             # We should fetch it or pass it.
-            signals.append(SignalPoint(time=int(event.time), type="buy" if event.signal_type == "LONG" else "sell", price=0)) # Price 0 for now
-            
-        bus.subscribe(SignalEvent, on_signal)
+        signals_viz = []
         
         # Data Generator
-        # Convert Polars DF to MarketEvent generator
-        # It's slow to iterate rows in Python, but acceptable for "Event Mode" backtest prototype
         rows = df.rows(named=True)
         
         def data_gen():
@@ -220,34 +182,48 @@ class BacktestService:
                     volume=row["volume"]
                 )
                 yield evt
-                # Track Equity Curve on every bar (Mark to Market)
-                current_equity = cash + (position * row["close"])
-                # Sample equity curve (e.g. daily or hourly?)
-                # For consistency with vector, every bar?
-                # Optimization: Only sample every hour?
-                # For now, every bar is too much data for frontend chart if minute data.
-                # Let's sample if timestamp changes hour?
+                
+                # Record equity snapshot every hour
                 if ts % 3600 == 0:
-                    equity_curve.append(ChartPoint(time=ts, value=current_equity))
-                    candles.append(CandlePoint(time=ts, open=row["open"], high=row["high"], low=row["low"], close=row["close"], volume=row["volume"]))
+                    portfolio.snapshot(ts)
+                    candles.append(CandlePoint(
+                        time=ts, open=row["open"], high=row["high"],
+                        low=row["low"], close=row["close"], volume=row["volume"]
+                    ))
 
         engine.run(data_gen())
         
-        # Format Results
-        # Reuse _format_response logic if possible, or construct manually
+        # Build equity curve from portfolio snapshots
+        equity_curve = [
+            ChartPoint(time=snap["time"], value=snap["equity"])
+            for snap in portfolio.equity_history
+        ]
+        
+        # Build signal markers from fills log
+        for fill in portfolio.fills_log:
+            sig_type = "buy" if fill["direction"] == "BUY" else "sell"
+            signals_viz.append(SignalPoint(
+                time=int(fill["time"]),
+                type=sig_type,
+                price=fill["price"],
+            ))
         
         # Calculate Metrics
         from services.metrics_service import MetricsService
-        equity_values = [p.value for p in equity_curve]
-        metrics = MetricsService.calculate_metrics(equity_values, request.initial_cash)
+        equity_values = [p["equity"] for p in portfolio.equity_history]
+        metrics = MetricsService.calculate_metrics(
+            equity_values, request.initial_cash, fills=portfolio.fills_log
+        )
         metrics["Status"] = "Event Backtest Completed"
+        metrics["Sizing Method"] = risk_params.sizing_method
+        metrics["Execution Stats"] = execution.stats()
         
         return BacktestResponse(
             symbol=request.symbol,
             strategy=request.strategy,
             metrics=metrics, 
             equity_curve=equity_curve,
-            signals=signals,
+            signals=signals_viz,
             candles=candles,
             indicators={}
         )

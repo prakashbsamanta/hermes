@@ -7,9 +7,9 @@ import { ScannerView } from "@/components/backtest/ScannerView";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { StrategyConfigPanel } from "@/components/backtest/StrategyConfigPanel";
+import { StrategyConfigPanel, DEFAULT_RISK_PARAMS, type RiskParamsState } from "@/components/backtest/StrategyConfigPanel";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, Activity, DollarSign, AlertTriangle } from "lucide-react";
+import { TrendingUp, Activity, DollarSign, AlertTriangle, Target, ShieldCheck, Scale, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 export function BacktestPage() {
@@ -26,6 +26,7 @@ export function BacktestPage() {
   const [endDate, setEndDate] = useState<string>("");
   const [slippage, setSlippage] = useState<number>(0.0);
   const [commission, setCommission] = useState<number>(0.0);
+  const [riskParams, setRiskParams] = useState<RiskParamsState>({ ...DEFAULT_RISK_PARAMS });
 
   // Scanner State
   const [scanData, setScanData] = useState<ScanResponse | null>(null);
@@ -92,6 +93,7 @@ export function BacktestPage() {
       end_date: endDate || undefined,
       slippage: slippage,
       commission: commission,
+      risk_params: riskParams,
     });
   };
 
@@ -198,6 +200,8 @@ export function BacktestPage() {
               strategyName={strategy}
               currentParams={strategyParams}
               onParamsChange={setStrategyParams}
+              riskParams={riskParams}
+              onRiskParamsChange={setRiskParams}
             />
           </div>
 
@@ -239,6 +243,44 @@ export function BacktestPage() {
                   }
                   idx={3}
                 />
+                {/* Risk-aware Metrics (from PortfolioManager) */}
+                {activeData.metrics["Total Trades"] &&
+                  activeData.metrics["Total Trades"] !== "0" && (
+                    <>
+                      <MetricCard
+                        label="Total Trades"
+                        value={activeData.metrics["Total Trades"]}
+                        icon={
+                          <Target className="text-blue-400" size={18} />
+                        }
+                        idx={4}
+                      />
+                      <MetricCard
+                        label="Win Rate"
+                        value={activeData.metrics["Win Rate"]}
+                        icon={
+                          <ShieldCheck className="text-emerald-400" size={18} />
+                        }
+                        idx={5}
+                      />
+                      <MetricCard
+                        label="Profit Factor"
+                        value={activeData.metrics["Profit Factor"]}
+                        icon={
+                          <Scale className="text-amber-400" size={18} />
+                        }
+                        idx={6}
+                      />
+                      <MetricCard
+                        label="Max Capital at Risk"
+                        value={activeData.metrics["Max Capital at Risk"]}
+                        icon={
+                          <Crosshair className="text-rose-400" size={18} />
+                        }
+                        idx={7}
+                      />
+                    </>
+                  )}
               </>
             ) : viewMode === "single" ? (
               <Card className="p-6 border-dashed border-2 flex flex-col items-center justify-center text-center gap-2 bg-transparent">
