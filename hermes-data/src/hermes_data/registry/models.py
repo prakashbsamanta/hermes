@@ -10,6 +10,7 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -165,3 +166,47 @@ class ScanResultCache(Base):
 
     def __repr__(self) -> str:
         return f"<ScanResultCache(symbol='{self.symbol}', strategy='{self.strategy}')>"
+
+
+class DataFrameCache(Base):
+    """High-performance DataFrame cache using PostgreSQL UNLOGGED tables.
+
+    UNLOGGED tables bypass Write-Ahead Logging for maximum write throughput.
+    Stores serialized Polars DataFrames in Arrow IPC binary format.
+
+    Trade-off: Data is lost on unclean shutdown (crash), but this is
+    acceptable for a cache layer that can be repopulated from storage.
+    """
+
+    __tablename__ = "dataframe_cache"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cache_key = Column(String(128), unique=True, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False)
+    start_date = Column(String(10), nullable=True)  # "YYYY-MM-DD" or None
+    end_date = Column(String(10), nullable=True)    # "YYYY-MM-DD" or None
+
+    # Serialized Arrow IPC payload (binary)
+    payload = Column(LargeBinary, nullable=False)
+    payload_size_mb = Column(Float, nullable=False, default=0.0)
+    row_count = Column(Integer, nullable=False, default=0)
+
+    # Cache management
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    last_accessed_at = Column(DateTime, default=utc_now, nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    hit_count = Column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_df_cache_symbol_dates", "symbol", "start_date", "end_date"),
+        Index("ix_df_cache_expires", "expires_at"),
+        Index("ix_df_cache_lru", "last_accessed_at"),
+        {"prefixes": ["UNLOGGED"]},
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<DataFrameCache(symbol='{self.symbol}', "
+            f"rows={self.row_count}, size={self.payload_size_mb:.1f}MB)>"
+        )
+
