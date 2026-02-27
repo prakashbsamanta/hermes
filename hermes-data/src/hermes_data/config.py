@@ -19,6 +19,8 @@ class DataSettings(BaseSettings):
     # Cache settings
     cache_enabled: bool = True
     cache_max_size_mb: int = 512  # Memory cache limit in MB
+    cache_backend: str = "memory"  # "memory" or "postgres"
+    cache_ttl_hours: int = 24  # TTL for postgres cache entries
 
     # PostgreSQL Database settings
     database_url: str = "postgresql://hermes:hermes_secret@localhost:5432/hermes"
