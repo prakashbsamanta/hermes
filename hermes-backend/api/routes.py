@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException
 import logging
 import os
 import sys
+import uuid
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 from typing import List, Dict, Any
 
 # Add parent directory to path to allow imports if running from top level
@@ -13,7 +16,15 @@ if parent_dir not in sys.path:
 from services.market_data_service import MarketDataService  # noqa: E402
 from services.backtest_service import BacktestService  # noqa: E402
 from services.scanner_service import ScannerService  # noqa: E402
-from .models import BacktestRequest, BacktestResponse, ScanRequest, ScanResponse, StorageSettingsUpdate  # noqa: E402
+from .models import (  # noqa: E402
+    BacktestRequest,
+    BacktestResponse,
+    BacktestTaskResponse,
+    BacktestStatusResponse,
+    ScanRequest,
+    ScanResponse,
+    StorageSettingsUpdate,
+)
 from hermes_data.config import get_settings  # noqa: E402
 
 router = APIRouter()
@@ -22,6 +33,12 @@ router = APIRouter()
 _market_data_service = None
 _backtest_service = None
 _scanner_service = None
+
+# Async task store (in-memory; production should use Redis/DB)
+_task_store: Dict[str, Dict[str, Any]] = {}
+
+# Process pool for CPU-bound backtest computations
+_executor = ProcessPoolExecutor(max_workers=min(4, (os.cpu_count() or 2)))
 
 
 def get_market_data_service() -> MarketDataService:
@@ -76,8 +93,24 @@ async def get_market_data(symbol: str, timeframe: str = "1h"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _run_backtest_sync(request_dict: dict) -> dict:
+    """Run backtest synchronously (for use in process pool).
+
+    Must be a top-level function for ProcessPoolExecutor pickling.
+    """
+    from services.backtest_service import BacktestService
+    from services.market_data_service import MarketDataService
+    from api.models import BacktestRequest
+
+    svc = BacktestService(MarketDataService())
+    req = BacktestRequest(**request_dict)
+    result = svc.run_backtest(req)
+    return result.model_dump()
+
+
 @router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest(request: BacktestRequest):
+    """Run a backtest synchronously (original behavior, backward-compatible)."""
     try:
         return get_backtest_service().run_backtest(request)
     except ValueError as e:
@@ -87,6 +120,65 @@ async def run_backtest(request: BacktestRequest):
     except Exception as e:
         logging.error(f"Backtest execution failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backtest/async", response_model=BacktestTaskResponse)
+async def run_backtest_async(request: BacktestRequest):
+    """Submit a backtest for async execution and return immediately with a task_id.
+
+    The backtest runs in a separate process to avoid blocking the ASGI event loop.
+    Poll /backtest/status/{task_id} for results.
+    """
+    task_id = str(uuid.uuid4())
+
+    # Store initial task state
+    _task_store[task_id] = {
+        "status": "processing",
+        "result": None,
+        "error": None,
+    }
+
+    # Submit to process pool
+    loop = asyncio.get_event_loop()
+
+    async def _run_task():
+        try:
+            result_dict = await loop.run_in_executor(
+                _executor,
+                _run_backtest_sync,
+                request.model_dump(),
+            )
+            _task_store[task_id]["status"] = "completed"
+            _task_store[task_id]["result"] = result_dict
+        except Exception as e:
+            logging.error(f"Async backtest {task_id} failed: {e}", exc_info=True)
+            _task_store[task_id]["status"] = "failed"
+            _task_store[task_id]["error"] = str(e)
+
+    # Fire and forget — runs in background
+    asyncio.ensure_future(_run_task())
+
+    return BacktestTaskResponse(task_id=task_id)
+
+
+@router.get("/backtest/status/{task_id}", response_model=BacktestStatusResponse)
+async def get_backtest_status(task_id: str):
+    """Poll the status of an async backtest task."""
+    if task_id not in _task_store:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    task = _task_store[task_id]
+
+    result = None
+    if task["result"]:
+        result = BacktestResponse(**task["result"])
+
+    return BacktestStatusResponse(
+        task_id=task_id,
+        status=task["status"],
+        result=result,
+        error=task.get("error"),
+    )
 
 
 def get_scanner_service() -> ScannerService:
@@ -157,3 +249,4 @@ async def update_storage_provider(settings: StorageSettingsUpdate):
             status_code=500, 
             detail=f"Failed to switch provider: {str(e)}. Reverted to {start_provider}."
         )
+

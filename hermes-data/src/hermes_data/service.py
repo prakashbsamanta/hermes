@@ -102,7 +102,30 @@ class DataService:
         if not self.settings.cache_enabled:
             logger.info("Caching disabled")
             return None
-        
+
+        if self.settings.cache_backend == "postgres":
+            try:
+                from .cache.postgres import PostgresCache
+                from .registry.database import get_database
+
+                db = get_database(self.settings)
+                db.create_tables()  # Ensure cache table exists
+                logger.info(
+                    f"Using PostgresCache (UNLOGGED) with "
+                    f"{self.settings.cache_max_size_mb}MB limit, "
+                    f"{self.settings.cache_ttl_hours}h TTL"
+                )
+                return PostgresCache(
+                    session_factory=db.session_factory,
+                    max_size_mb=self.settings.cache_max_size_mb,
+                    ttl_hours=self.settings.cache_ttl_hours,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to initialize PostgresCache: {e}. "
+                    f"Falling back to MemoryCache."
+                )
+
         logger.info(f"Using MemoryCache with {self.settings.cache_max_size_mb}MB limit")
         return MemoryCache(max_size_mb=self.settings.cache_max_size_mb)
 
