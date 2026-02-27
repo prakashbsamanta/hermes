@@ -14,11 +14,13 @@ from .providers.base import DataProvider
 from .providers.local import LocalFileProvider
 from .cache.base import CacheProvider
 from .cache.memory import MemoryCache
+from .cache.postgres import PostgresCache
 
 # Registry exports (may fail if database not configured)
 try:
     from .registry import Base, Instrument, DataAvailability, RegistryService  # noqa: F401
     from .registry.database import Database, get_database  # noqa: F401
+    from .registry.models import DataFrameCache  # noqa: F401
     _registry_available = True
 except ImportError:
     _registry_available = False
@@ -36,6 +38,7 @@ __all__ = [
     # Cache
     "CacheProvider",
     "MemoryCache",
+    "PostgresCache",
 ]
 
 # Add registry exports if available
@@ -47,4 +50,5 @@ if _registry_available:
         "RegistryService",
         "Database",
         "get_database",
+        "DataFrameCache",
     ])

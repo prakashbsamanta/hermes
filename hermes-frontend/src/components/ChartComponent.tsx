@@ -59,6 +59,7 @@ export const ChartComponent: React.FC<ChartProps> = ({
     type: "buy" | "sell";
     price: number;
     time: number;
+    quantity?: number;
   } | null>(null);
 
   // Calculate Client-Side SMA if enabled
@@ -225,14 +226,7 @@ export const ChartComponent: React.FC<ChartProps> = ({
         const signalAtTime = signals.find((s) => s.time === time);
 
         if (signalAtTime) {
-          // Calculate tooltip position near the marker
-          // Markers are above/below bars.
-          // We can use param.point (cursor) or calculate Y position of the bar.
-          // Using cursor X and fixed Y offset from cursor might be easiest,
-          // or better: anchor to the series price if possible.
-          // For simplicity, let's float near the cursor but ensure visibility.
-
-          const price = signalAtTime.price || 0; // Fallback if price missing
+          const price = signalAtTime.price || 0;
 
           setTooltipData({
             visible: true,
@@ -241,6 +235,8 @@ export const ChartComponent: React.FC<ChartProps> = ({
             type: signalAtTime.type,
             price: price,
             time: signalAtTime.time,
+            quantity: (signalAtTime as unknown as { quantity?: number })
+              .quantity,
           });
         } else {
           setTooltipData(null);
@@ -345,27 +341,70 @@ export const ChartComponent: React.FC<ChartProps> = ({
       {/* Tooltip */}
       {tooltipData && tooltipData.visible && (
         <div
-          className="absolute z-50 p-2 rounded shadow-lg border text-xs font-mono pointer-events-none transition-opacity duration-75"
+          className="absolute z-50 px-3 py-2 rounded-lg shadow-xl border text-xs font-mono pointer-events-none transition-opacity duration-75"
           style={{
-            left: tooltipData.x + 15, // Slightly further offset
+            left: Math.min(
+              tooltipData.x + 15,
+              (chartContainerRef.current?.clientWidth || 400) - 200,
+            ),
             top: tooltipData.y + 15,
-            backgroundColor: "rgba(30, 41, 59, 0.9)", // Slate 900 with high opacity (no longer transparent var)
-            backdropFilter: "blur(8px)", // Add glassmorphism blur
+            backgroundColor: "rgba(15, 23, 42, 0.95)",
+            backdropFilter: "blur(12px)",
             borderColor: tooltipData.type === "buy" ? "#10b981" : "#ef4444",
-            color: "#f8fafc", // Slate 50 (Foreground)
+            color: "#f8fafc",
+            minWidth: "160px",
           }}
         >
           <div
-            className="font-bold uppercase mb-1"
+            className="font-bold uppercase mb-1.5 text-[11px] tracking-wider flex items-center gap-1.5"
             style={{
               color: tooltipData.type === "buy" ? "#10b981" : "#ef4444",
             }}
           >
-            {tooltipData.type} SIGNAL
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{
+                backgroundColor:
+                  tooltipData.type === "buy" ? "#10b981" : "#ef4444",
+              }}
+            />
+            {tooltipData.type === "buy" ? "LONG" : "EXIT"}
           </div>
-          <div>Price: {tooltipData.price.toFixed(2)}</div>
-          <div className="text-muted-foreground text-[10px]">
-            {new Date(tooltipData.time * 1000).toLocaleString()}
+          {tooltipData.quantity && tooltipData.quantity > 0 ? (
+            <div className="text-[11px] mb-0.5">
+              <span className="text-slate-400">Qty:</span>{" "}
+              <span className="text-white font-semibold">
+                {tooltipData.quantity}
+              </span>{" "}
+              <span className="text-slate-400">@</span>{" "}
+              <span className="text-white font-semibold">
+                ₹
+                {tooltipData.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          ) : (
+            <div className="text-[11px] mb-0.5">
+              <span className="text-slate-400">Price:</span>{" "}
+              <span className="text-white font-semibold">
+                ₹
+                {tooltipData.price.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          )}
+          <div className="text-[10px] text-slate-500 mt-1 border-t border-slate-700 pt-1">
+            {new Date(tooltipData.time * 1000).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </div>
         </div>
       )}

@@ -2,6 +2,15 @@ import axios from "axios";
 
 const API_URL = "http://localhost:8000";
 
+export interface RiskParams {
+  sizing_method: "fixed" | "pct_equity" | "atr_based";
+  fixed_quantity: number;
+  pct_equity: number;
+  atr_multiplier: number;
+  max_position_pct: number;
+  stop_loss_pct: number;
+}
+
 export interface BacktestRequest {
   symbol: string;
   strategy: string;
@@ -13,6 +22,7 @@ export interface BacktestRequest {
   end_date?: string;
   slippage?: number;
   commission?: number;
+  risk_params?: RiskParams;
 }
 
 export interface ChartPoint {
@@ -49,6 +59,21 @@ export interface BacktestResponse {
   candles: CandlePoint[];
   indicators: Record<string, IndicatorPoint[]>;
   status: string;
+  error?: string;
+  task_id?: string;
+}
+
+export interface BacktestTaskResponse {
+  task_id: string;
+  status: string;
+  message: string;
+}
+
+export interface BacktestStatusResponse {
+  task_id: string;
+  status: "processing" | "completed" | "failed";
+  progress?: number;
+  result?: BacktestResponse;
   error?: string;
 }
 
@@ -96,6 +121,23 @@ export const api = {
     const response = await axios.post<BacktestResponse>(
       `${API_URL}/backtest`,
       req,
+    );
+    return response.data;
+  },
+  runBacktestAsync: async (
+    req: BacktestRequest,
+  ): Promise<BacktestTaskResponse> => {
+    const response = await axios.post<BacktestTaskResponse>(
+      `${API_URL}/backtest/async`,
+      req,
+    );
+    return response.data;
+  },
+  pollBacktestStatus: async (
+    taskId: string,
+  ): Promise<BacktestStatusResponse> => {
+    const response = await axios.get<BacktestStatusResponse>(
+      `${API_URL}/backtest/status/${taskId}`,
     );
     return response.data;
   },
