@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ScannerView } from "./ScannerView";
-import { ScanResponse } from "@/services/api";
+import type { ScanResponse } from "@/services/api";
 import userEvent from "@testing-library/user-event";
 
 describe("ScannerView", () => {

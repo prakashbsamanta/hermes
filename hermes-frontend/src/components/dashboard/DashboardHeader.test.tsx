@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
 // Mock resize observer for some UI components
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
@@ -49,6 +49,8 @@ describe("DashboardHeader", () => {
     isRunning: false,
     mode: "vector" as "vector" | "event",
     onModeChange: vi.fn(),
+    timeframe: "1d",
+    setTimeframe: vi.fn(),
     start_date: "2024-01-01",
     setStartDate: vi.fn(),
     end_date: "2024-03-01",
