@@ -49,3 +49,5 @@
 [2026-02-16T19:40:00Z] [SUCCESS] [COVERAGE] Achieved 97.7% Frontend Test Coverage by adding comprehensive tests for Calendar, DateInput, and Command components. All quality checks passing.
 [2026-02-17 22:54:38] [DONE] [SYSTEM] Fixed asset listing (S3 prefix), date range crashes, and implemented unified JSON logging
 [2026-02-17 23:20:00] [DONE] [SYSTEM] Implemented start script with live logs and fixed S3 timezone filtering
+[2026-02-18T17:05:32Z] [feature] [BACKEND/FRONTEND] Implemented Multi-Timeframe (MTF) Backtesting Support. Updated BacktestEngine, BacktestService, ScannerService, and Frontend UI to allow selecting and executing strategies on various timeframes (1m to 1d). Added comprehensive tests covering signal shifting and look-ahead bias prevention.
+[2026-02-18 23:25:00] [FIX] [BACKEND] Fixed regression where Multi-Timeframe backtests produced identical results or failed silently. Added 'symbol' column to MarketDataService.resample_data aggregation to prevent strategy crashes when accessing symbol data on resampled frames. This ensures 1h/4h/1d analysis runs correctly and produces distinct results.

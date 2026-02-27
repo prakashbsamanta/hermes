@@ -11,6 +11,7 @@ class BacktestRequest(BaseModel):
     commission: float = 0.0 # Per unit (dollar)
     start_date: str | None = None # "YYYY-MM-DD"
     end_date: str | None = None # "YYYY-MM-DD"
+    timeframe: str = "1h" # Analysis timeframe: "1m", "5m", "15m", "30m", "1h", "4h", "1d"
 
 class ChartPoint(BaseModel):
     time: int # Unix timestamp (seconds) or formatted string
@@ -53,6 +54,7 @@ class ScanRequest(BaseModel):
     mode: str = "vector"
     start_date: str | None = None
     end_date: str | None = None
+    timeframe: str = "1h"
     max_concurrency: int = 10
 
 

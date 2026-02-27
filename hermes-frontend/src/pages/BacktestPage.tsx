@@ -19,6 +19,7 @@ export function BacktestPage() {
   const [strategyParams, setStrategyParams] = useState<Record<string, any>>({});
   const [instruments, setInstruments] = useState<string[]>([]);
   const [mode, setMode] = useState<"vector" | "event">("vector");
+  const [timeframe, setTimeframe] = useState<string>("1h");
 
   // Filter State
   const [startDate, setStartDate] = useState<string>("");
@@ -86,6 +87,7 @@ export function BacktestPage() {
       strategy: strategy,
       params: strategyParams,
       mode: mode,
+      timeframe: timeframe,
       start_date: startDate || undefined,
       end_date: endDate || undefined,
       slippage: slippage,
@@ -171,6 +173,8 @@ export function BacktestPage() {
           ]}
           mode={mode}
           onModeChange={setMode}
+          timeframe={timeframe}
+          setTimeframe={setTimeframe}
           start_date={startDate}
           setStartDate={setStartDate}
           end_date={endDate}

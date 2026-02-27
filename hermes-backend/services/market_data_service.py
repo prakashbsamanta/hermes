@@ -140,6 +140,7 @@ class MarketDataService:
             "low": pl.col("low").min(),
             "close": pl.col("close").last(),
             "volume": pl.col("volume").sum(),
+            "symbol": pl.col("symbol").first(),
         }
 
         # If equity/indicators exist, add them
